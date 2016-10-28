@@ -1,7 +1,7 @@
 {
-    "version": "1.0.0",
-    "summary": "Sample Elm Test",
-    "repository": "https://github.com/user/project.git",
+    "version": "0.0.0",
+    "summary": "Tests for jamesmacaulay/elm-graphql",
+    "repository": "https://github.com/jamesmacaulay/elm-graphql.git",
     "license": "BSD-3-Clause",
     "source-directories": [
         ".",
