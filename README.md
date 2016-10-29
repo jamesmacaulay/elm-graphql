@@ -31,16 +31,14 @@ userQuery : Query User
 userQuery =
     let
         photo =
-            construct Photo
+            object Photo
                 |> withField "url" [] string
                 |> withField "caption" [] string
-                |> fromObject
 
         user =
-            construct User
+            object User
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
-                |> fromObject
     in
         query [] (at [ "user" ] user)
 ```

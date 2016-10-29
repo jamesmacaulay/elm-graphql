@@ -17,7 +17,7 @@ testValueSpec :
     -> Q.ValueSpec
     -> Test.Test
 testValueSpec expr decodableValueSpec expectedValueSpec =
-    test (expr ++ "'s ValueSpec")
+    test ("ValueSpec for " ++ expr)
         <| \() ->
             decodableValueSpec
                 |> Q.getNode
@@ -31,7 +31,7 @@ testDecoder :
     -> a
     -> Test.Test
 testDecoder expr decodableValueSpec testJSON expectedResult =
-    test (expr ++ "'s Decoder")
+    test ("Decoder for " ++ expr)
         <| \() ->
             decodableValueSpec
                 |> Q.getDecoder
@@ -76,11 +76,10 @@ tests =
         (Q.list Q.int)
         "[1, 2, 3]"
         [ 1, 2, 3 ]
-    , testValueSpec "(construct (,) ...)"
-        (Q.construct (,)
+    , testValueSpec "(object (,) |> withField ...)"
+        (Q.object (,)
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
-            |> Q.fromObject
         )
         (Q.ObjectSpec
             (Q.SelectionSet

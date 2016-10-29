@@ -21,6 +21,7 @@ type ValueSpec
     | ObjectSpec SelectionSet
     | ListSpec ValueSpec
     | MaybeSpec ValueSpec
+    | InvalidSpec String ValueSpec
 
 
 type Field
@@ -181,14 +182,9 @@ list =
     mapDecodable ListSpec Decode.list
 
 
-construct : (a -> b) -> Decodable SelectionSet (a -> b)
-construct constructor =
-    Decodable (SelectionSet []) (Decode.succeed constructor)
-
-
-fromObject : Decodable SelectionSet a -> Decodable ValueSpec a
-fromObject =
-    mapNode ObjectSpec
+object : (a -> b) -> Decodable ValueSpec (a -> b)
+object constructor =
+    Decodable (ObjectSpec (SelectionSet [])) (Decode.succeed constructor)
 
 
 fieldAlias : String -> FieldOption
@@ -223,91 +219,121 @@ withField :
     String
     -> List FieldOption
     -> Decodable ValueSpec a
-    -> Decodable SelectionSet (a -> b)
-    -> Decodable SelectionSet b
-withField name fieldOptions decodableValueSpec decodableSelectionSet =
+    -> Decodable ValueSpec (a -> b)
+    -> Decodable ValueSpec b
+withField name fieldOptions decodableFieldValueSpec decodableParentValueSpec =
     let
+        (Decodable parentValueSpec parentDecoder) =
+            decodableParentValueSpec
+
         (Decodable fieldValueSpec fieldValueDecoder) =
-            decodableValueSpec
-
-        (Decodable (SelectionSet selections) objectDecoder) =
-            decodableSelectionSet
-
-        field =
-            Field
-                { name = name
-                , valueSpec = fieldValueSpec
-                , fieldAlias = Nothing
-                , args = []
-                , directives = []
-                }
-                |> flip (List.foldr applyFieldOption) fieldOptions
-
-        selections' =
-            addSelection (FieldSelection field) selections
+            decodableFieldValueSpec
 
         decoder =
-            Decode.object2 (<|) objectDecoder (name := fieldValueDecoder)
+            Decode.object2 (<|) parentDecoder (name := fieldValueDecoder)
+
+        valueSpec =
+            case parentValueSpec of
+                ObjectSpec (SelectionSet selections) ->
+                    let
+                        field =
+                            Field
+                                { name = name
+                                , valueSpec = fieldValueSpec
+                                , fieldAlias = Nothing
+                                , args = []
+                                , directives = []
+                                }
+                                |> flip (List.foldr applyFieldOption) fieldOptions
+
+                        selections' =
+                            addSelection (FieldSelection field) selections
+                    in
+                        ObjectSpec (SelectionSet selections')
+
+                _ ->
+                    parentValueSpec
+                        |> InvalidSpec ("Tried to add field " ++ toString name ++ " to a non-object: " ++ toString parentValueSpec)
     in
-        Decodable (SelectionSet selections') decoder
+        Decodable valueSpec decoder
 
 
 withFragment :
     Decodable FragmentDefinition a
     -> List Directive
-    -> Decodable SelectionSet (Maybe a -> b)
-    -> Decodable SelectionSet b
+    -> Decodable ValueSpec (Maybe a -> b)
+    -> Decodable ValueSpec b
 withFragment decodableFragmentDefinition directives decodableSelectionSet =
     let
         (Decodable (FragmentDefinition fragmentDefinition) fragmentDecoder) =
             decodableFragmentDefinition
 
-        (Decodable (SelectionSet selections) objectDecoder) =
+        (Decodable parentValueSpec parentDecoder) =
             decodableSelectionSet
 
-        fragmentSpread =
-            FragmentSpread
-                { name = fragmentDefinition.name
-                , directives = directives
-                }
-
-        selections' =
-            addSelection (FragmentSpreadSelection fragmentSpread) selections
-
         decoder =
-            Decode.object2 (<|) objectDecoder (Decode.maybe fragmentDecoder)
+            Decode.object2 (<|) parentDecoder (Decode.maybe fragmentDecoder)
+
+        valueSpec =
+            case parentValueSpec of
+                ObjectSpec (SelectionSet selections) ->
+                    let
+                        fragmentSpread =
+                            FragmentSpread
+                                { name = fragmentDefinition.name
+                                , directives = directives
+                                }
+
+                        selections' =
+                            addSelection (FragmentSpreadSelection fragmentSpread) selections
+                    in
+                        ObjectSpec (SelectionSet selections')
+
+                _ ->
+                    parentValueSpec
+                        |> InvalidSpec ("Tried to add fragment " ++ toString fragmentDefinition.name ++ " to a non-object: " ++ toString parentValueSpec)
     in
-        Decodable (SelectionSet selections') decoder
+        Decodable valueSpec decoder
 
 
 withInlineFragment :
     Maybe String
     -> List Directive
     -> Decodable SelectionSet a
-    -> Decodable SelectionSet (Maybe a -> b)
-    -> Decodable SelectionSet b
-withInlineFragment typeCondition directives decodableFragmentSelectionSet decodableParentSelectionSet =
+    -> Decodable ValueSpec (Maybe a -> b)
+    -> Decodable ValueSpec b
+withInlineFragment typeCondition directives decodableFragmentSelectionSet decodableParentValueSpec =
     let
         (Decodable fragmentSelectionSet fragmentDecoder) =
             decodableFragmentSelectionSet
 
-        (Decodable (SelectionSet selections) objectDecoder) =
-            decodableParentSelectionSet
-
-        inlineFragment =
-            InlineFragment
-                { typeCondition = typeCondition
-                , directives = directives
-                , selectionSet = fragmentSelectionSet
-                }
-
-        selections' =
-            addSelection (InlineFragmentSelection inlineFragment) selections
+        (Decodable parentValueSpec objectDecoder) =
+            decodableParentValueSpec
 
         decoder =
             Decode.object2 (<|) objectDecoder (Decode.maybe fragmentDecoder)
+
+        valueSpec =
+            case parentValueSpec of
+                ObjectSpec (SelectionSet selections) ->
+                    let
+                        inlineFragment =
+                            InlineFragment
+                                { typeCondition = typeCondition
+                                , directives = directives
+                                , selectionSet = fragmentSelectionSet
+                                }
+
+                        selections' =
+                            addSelection (InlineFragmentSelection inlineFragment) selections
+                    in
+                        ObjectSpec (SelectionSet selections')
+
+                _ ->
+                    parentValueSpec
+                        |> InvalidSpec ("Tried to add inline fragment " ++ toString decodableFragmentSelectionSet ++ " to a non-object: " ++ toString parentValueSpec)
     in
-        Decodable (SelectionSet selections') decoder
+        Decodable valueSpec decoder
 
 
 fragment : String -> String -> List Directive -> Decodable SelectionSet a -> Decodable FragmentDefinition a
