@@ -13,14 +13,14 @@ With `elm-graphql`, building up a GraphQL query feels a lot like building a JSON
 ```elm
 import GraphQL.Query exposing (..)
 
-type alias User =
-    { name : String
-    , photos : List Photo }
-
 type alias Photo =
     { url : String
     , caption : String
     }
+
+type alias User =
+    { name : String
+    , photos : List Photo }
 ```
 
 Then you build a query:
