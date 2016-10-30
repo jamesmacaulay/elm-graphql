@@ -24,6 +24,22 @@ type ValueSpec
     | InvalidSpec String ValueSpec
 
 
+getBaseValueSpec : ValueSpec -> ValueSpec
+getBaseValueSpec valueSpec =
+    case valueSpec of
+        ListSpec inner ->
+            inner
+
+        MaybeSpec inner ->
+            inner
+
+        InvalidSpec _ inner ->
+            inner
+
+        _ ->
+            valueSpec
+
+
 type Field
     = Field
         { name : String
@@ -88,6 +104,10 @@ type Query
         { name : Maybe String
         , selectionSet : SelectionSet
         }
+
+
+type QueryOption
+    = QueryName String
 
 
 type Decodable node result
@@ -215,6 +235,18 @@ applyFieldOption fieldOption (Field fieldInfo) =
 
         FieldDirectives directives ->
             Field { fieldInfo | directives = fieldInfo.directives ++ directives }
+
+
+queryName : String -> QueryOption
+queryName =
+    QueryName
+
+
+applyQueryOption : QueryOption -> Query -> Query
+applyQueryOption queryOption (Query queryInfo) =
+    case queryOption of
+        QueryName name ->
+            Query { queryInfo | name = Just name }
 
 
 addSelection : Selection -> List Selection -> List Selection
@@ -356,14 +388,16 @@ fragment name typeCondition directives =
         )
 
 
-query : Decodable ValueSpec a -> Decodable Query a
-query =
+query : List QueryOption -> Decodable ValueSpec a -> Decodable Query a
+query queryOptions =
     mapNode
         (\valueSpec ->
-            case valueSpec of
+            (case valueSpec of
                 ObjectSpec selectionSet ->
                     Query { name = Nothing, selectionSet = selectionSet }
 
                 _ ->
                     Query { name = Nothing, selectionSet = (SelectionSet []) }
+            )
+                |> flip (List.foldr applyQueryOption) queryOptions
         )

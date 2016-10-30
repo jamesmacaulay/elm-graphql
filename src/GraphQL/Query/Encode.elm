@@ -92,7 +92,7 @@ encodeField indentLevel (Field { name, valueSpec, fieldAlias, args, directives }
             encodeDirectivesSuffix directives
 
         selectionSetString =
-            case valueSpec of
+            case getBaseValueSpec valueSpec of
                 ObjectSpec selectionSet ->
                     " " ++ encodeSelectionSet indentLevel selectionSet
 
