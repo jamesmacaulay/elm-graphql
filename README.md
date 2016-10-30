@@ -6,6 +6,16 @@ A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written 
 
 This library is still a very early work-in-progress, but the goal is to provide a really good interface for working directly with GraphQL queries and schemas in Elm.
 
+Here's [a minimal end-to-end example](https://github.com/jamesmacaulay/elm-graphql/tree/master/example) that builds a query, sends it to a server, and decodes the response.
+
+**Lots of basic things don't work yet**, for example:
+
+* No validation of a query against a schema
+* No mutations
+* No support for query variables
+
+In addition, the interfaces provided by this library are still unstable and I expect them to change before I publish this library to the elm package repository.
+
 ### Queries
 
 With `elm-graphql`, building up a GraphQL query feels a lot like building a JSON decoder, especially if you're familiar with [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest). First you define type aliases for each of the nested record types you want to construct out of the response:
@@ -40,7 +50,7 @@ userQuery =
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
     in
-        query [] (at [ "user" ] user)
+        query [] (extractField "user" [] user)
 ```
 
 Here's what the above query looks like when you encode it to a string to be sent to the server:
@@ -59,10 +69,10 @@ Here's what the above query looks like when you encode it to a string to be sent
 
 Aside from generating query strings, `Query` values let you do two other important things:
   
-  * they can be validated against a GraphQL schema,
+  * they can be validated against a GraphQL schema (_not yet_), and
   * they can be used to decode JSON responses from the server.
 
-In most cases you will probably want to do all of your application's query validation as part of your unit tests. This involves decoding a standard GraphQL introspection reponse into a `GraphQL.Schema.Schema` value, and using `GraphQL.Schema.validate`.
+In most cases you will probably want to do all of your application's query validation as part of your unit tests. This involves decoding a standard GraphQL introspection reponse into a `GraphQL.Schema.Schema` value, and using functions from `GraphQL.Schema` to validate a query against that specific schema.
 
 Assuming you've built a valid query for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Query` value. Here's what a JSON response for `userQuery` might look like:
 
@@ -92,14 +102,4 @@ When it is decoded with `userQuery`, it then becomes this:
       }
     ]
 }
-```
-
-Most of the time, though, you will probably want to use the more convenient functions in `GraphQL.Client` to manage the encoding, HTTP requesting, and decoding for you:
-
-```elm
-import GraphQL.Client as Client
-
-userQueryTask : Task Client.Error User
-userQueryTask =
-    Client.performQuery userQuery myClient
 ```
