@@ -209,6 +209,15 @@ list =
     mapDecodable ListSpec Decode.list
 
 
+maybe : Decodable ValueSpec a -> Decodable ValueSpec (Maybe a)
+maybe =
+    let
+        nullable decoder =
+            Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
+    in
+        mapDecodable MaybeSpec nullable
+
+
 object : (a -> b) -> Decodable ValueSpec (a -> b)
 object constructor =
     Decodable (ObjectSpec (SelectionSet [])) (Decode.succeed constructor)
@@ -295,6 +304,12 @@ withField name fieldOptions decodableFieldValueSpec decodableParentValueSpec =
                         |> InvalidSpec ("Tried to add field " ++ toString name ++ " to a non-object: " ++ toString parentValueSpec)
     in
         Decodable valueSpec decoder
+
+
+extractField : String -> List FieldOption -> Decodable ValueSpec a -> Decodable ValueSpec a
+extractField name options child =
+    object identity
+        |> withField name options child
 
 
 withFragment :
