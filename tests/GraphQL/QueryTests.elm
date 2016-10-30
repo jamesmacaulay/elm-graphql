@@ -6,11 +6,6 @@ import GraphQL.Query as Q
 import Json.Decode as Decode
 
 
--- specTest : String -> Q.Decodable Q.ValueSpec a -> Test.Test
--- specTest expr decodableValueSpec =
---     test (expr ++ "'s spec is )
-
-
 testValueSpec :
     String
     -> Q.Decodable Q.ValueSpec a

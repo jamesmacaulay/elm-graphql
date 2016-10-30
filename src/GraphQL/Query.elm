@@ -83,6 +83,13 @@ type InlineFragment
         }
 
 
+type Query
+    = Query
+        { name : Maybe String
+        , selectionSet : SelectionSet
+        }
+
+
 type Decodable node result
     = Decodable node (Decoder result)
 
@@ -346,4 +353,17 @@ fragment name typeCondition directives =
                 , directives = directives
                 , selectionSet = selectionSet
                 }
+        )
+
+
+query : Decodable ValueSpec a -> Decodable Query a
+query =
+    mapNode
+        (\valueSpec ->
+            case valueSpec of
+                ObjectSpec selectionSet ->
+                    Query { name = Nothing, selectionSet = selectionSet }
+
+                _ ->
+                    Query { name = Nothing, selectionSet = (SelectionSet []) }
         )
