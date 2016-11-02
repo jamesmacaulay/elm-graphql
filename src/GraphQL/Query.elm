@@ -14,20 +14,20 @@ type SelectionSet
     = SelectionSet (List Selection)
 
 
-type ValueSpec
+type Spec
     = IntSpec
     | FloatSpec
     | StringSpec
     | BooleanSpec
     | ObjectSpec SelectionSet
-    | ListSpec ValueSpec
-    | MaybeSpec ValueSpec
-    | InvalidSpec String ValueSpec
+    | ListSpec Spec
+    | MaybeSpec Spec
+    | InvalidSpec String Spec
 
 
-getBaseValueSpec : ValueSpec -> ValueSpec
-getBaseValueSpec valueSpec =
-    case valueSpec of
+getBaseSpec : Spec -> Spec
+getBaseSpec spec =
+    case spec of
         ListSpec inner ->
             inner
 
@@ -38,13 +38,13 @@ getBaseValueSpec valueSpec =
             inner
 
         _ ->
-            valueSpec
+            spec
 
 
 type Field
     = Field
         { name : String
-        , valueSpec : ValueSpec
+        , spec : Spec
         , fieldAlias : Maybe String
         , args : List ( String, Arg.Value )
         , directives : List Directive
@@ -128,32 +128,32 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-string : Decodable ValueSpec String
+string : Decodable Spec String
 string =
     Decodable StringSpec Decode.string
 
 
-int : Decodable ValueSpec Int
+int : Decodable Spec Int
 int =
     Decodable IntSpec Decode.int
 
 
-float : Decodable ValueSpec Float
+float : Decodable Spec Float
 float =
     Decodable FloatSpec Decode.float
 
 
-bool : Decodable ValueSpec Bool
+bool : Decodable Spec Bool
 bool =
     Decodable BooleanSpec Decode.bool
 
 
-list : Decodable ValueSpec a -> Decodable ValueSpec (List a)
+list : Decodable Spec a -> Decodable Spec (List a)
 list =
     mapDecodable ListSpec Decode.list
 
 
-maybe : Decodable ValueSpec a -> Decodable ValueSpec (Maybe a)
+maybe : Decodable Spec a -> Decodable Spec (Maybe a)
 maybe =
     let
         nullable decoder =
@@ -162,7 +162,7 @@ maybe =
         mapDecodable MaybeSpec nullable
 
 
-object : (a -> b) -> Decodable ValueSpec (a -> b)
+object : (a -> b) -> Decodable Spec (a -> b)
 object constructor =
     Decodable (ObjectSpec (SelectionSet [])) (Decode.succeed constructor)
 
@@ -210,28 +210,28 @@ addSelection s selections =
 withField :
     String
     -> List FieldOption
-    -> Decodable ValueSpec a
-    -> Decodable ValueSpec (a -> b)
-    -> Decodable ValueSpec b
-withField name fieldOptions decodableFieldValueSpec decodableParentValueSpec =
+    -> Decodable Spec a
+    -> Decodable Spec (a -> b)
+    -> Decodable Spec b
+withField name fieldOptions decodableFieldSpec decodableParentSpec =
     let
-        (Decodable parentValueSpec parentDecoder) =
-            decodableParentValueSpec
+        (Decodable parentSpec parentDecoder) =
+            decodableParentSpec
 
-        (Decodable fieldValueSpec fieldValueDecoder) =
-            decodableFieldValueSpec
+        (Decodable fieldSpec fieldValueDecoder) =
+            decodableFieldSpec
 
         decoder =
             Decode.object2 (<|) parentDecoder (name := fieldValueDecoder)
 
-        valueSpec =
-            case parentValueSpec of
+        spec =
+            case parentSpec of
                 ObjectSpec (SelectionSet selections) ->
                     let
                         field =
                             Field
                                 { name = name
-                                , valueSpec = fieldValueSpec
+                                , spec = fieldSpec
                                 , fieldAlias = Nothing
                                 , args = []
                                 , directives = []
@@ -244,13 +244,13 @@ withField name fieldOptions decodableFieldValueSpec decodableParentValueSpec =
                         ObjectSpec (SelectionSet selections)
 
                 _ ->
-                    parentValueSpec
-                        |> InvalidSpec ("Tried to add field " ++ toString name ++ " to a non-object: " ++ toString parentValueSpec)
+                    parentSpec
+                        |> InvalidSpec ("Tried to add field " ++ toString name ++ " to a non-object: " ++ toString parentSpec)
     in
-        Decodable valueSpec decoder
+        Decodable spec decoder
 
 
-extractField : String -> List FieldOption -> Decodable ValueSpec a -> Decodable ValueSpec a
+extractField : String -> List FieldOption -> Decodable Spec a -> Decodable Spec a
 extractField name options child =
     object identity
         |> withField name options child
@@ -259,21 +259,21 @@ extractField name options child =
 withFragment :
     Decodable FragmentDefinition a
     -> List Directive
-    -> Decodable ValueSpec (Maybe a -> b)
-    -> Decodable ValueSpec b
+    -> Decodable Spec (Maybe a -> b)
+    -> Decodable Spec b
 withFragment decodableFragmentDefinition directives decodableSelectionSet =
     let
         (Decodable (FragmentDefinition fragmentDefinition) fragmentDecoder) =
             decodableFragmentDefinition
 
-        (Decodable parentValueSpec parentDecoder) =
+        (Decodable parentSpec parentDecoder) =
             decodableSelectionSet
 
         decoder =
             Decode.object2 (<|) parentDecoder (Decode.maybe fragmentDecoder)
 
-        valueSpec =
-            case parentValueSpec of
+        spec =
+            case parentSpec of
                 ObjectSpec (SelectionSet selections) ->
                     let
                         fragmentSpread =
@@ -288,31 +288,31 @@ withFragment decodableFragmentDefinition directives decodableSelectionSet =
                         ObjectSpec (SelectionSet selections)
 
                 _ ->
-                    parentValueSpec
-                        |> InvalidSpec ("Tried to add fragment " ++ toString fragmentDefinition.name ++ " to a non-object: " ++ toString parentValueSpec)
+                    parentSpec
+                        |> InvalidSpec ("Tried to add fragment " ++ toString fragmentDefinition.name ++ " to a non-object: " ++ toString parentSpec)
     in
-        Decodable valueSpec decoder
+        Decodable spec decoder
 
 
 withInlineFragment :
     Maybe String
     -> List Directive
     -> Decodable SelectionSet a
-    -> Decodable ValueSpec (Maybe a -> b)
-    -> Decodable ValueSpec b
-withInlineFragment typeCondition directives decodableFragmentSelectionSet decodableParentValueSpec =
+    -> Decodable Spec (Maybe a -> b)
+    -> Decodable Spec b
+withInlineFragment typeCondition directives decodableFragmentSelectionSet decodableParentSpec =
     let
         (Decodable fragmentSelectionSet fragmentDecoder) =
             decodableFragmentSelectionSet
 
-        (Decodable parentValueSpec objectDecoder) =
-            decodableParentValueSpec
+        (Decodable parentSpec objectDecoder) =
+            decodableParentSpec
 
         decoder =
             Decode.object2 (<|) objectDecoder (Decode.maybe fragmentDecoder)
 
-        valueSpec =
-            case parentValueSpec of
+        spec =
+            case parentSpec of
                 ObjectSpec (SelectionSet selections) ->
                     let
                         inlineFragment =
@@ -328,10 +328,10 @@ withInlineFragment typeCondition directives decodableFragmentSelectionSet decoda
                         ObjectSpec (SelectionSet selections)
 
                 _ ->
-                    parentValueSpec
-                        |> InvalidSpec ("Tried to add inline fragment " ++ toString decodableFragmentSelectionSet ++ " to a non-object: " ++ toString parentValueSpec)
+                    parentSpec
+                        |> InvalidSpec ("Tried to add inline fragment " ++ toString decodableFragmentSelectionSet ++ " to a non-object: " ++ toString parentSpec)
     in
-        Decodable valueSpec decoder
+        Decodable spec decoder
 
 
 fragment : String -> String -> List Directive -> Decodable SelectionSet a -> Decodable FragmentDefinition a
@@ -347,11 +347,11 @@ fragment name typeCondition directives =
         )
 
 
-query : List QueryOption -> Decodable ValueSpec a -> Decodable Query a
+query : List QueryOption -> Decodable Spec a -> Decodable Query a
 query queryOptions =
     mapNode
-        (\valueSpec ->
-            (case valueSpec of
+        (\spec ->
+            (case spec of
                 ObjectSpec selectionSet ->
                     Query { name = Nothing, selectionSet = selectionSet }
 

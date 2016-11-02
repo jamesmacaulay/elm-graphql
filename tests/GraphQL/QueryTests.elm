@@ -6,29 +6,29 @@ import GraphQL.Query as Q
 import Json.Decode as Decode
 
 
-testValueSpec :
+testSpec :
     String
-    -> Q.Decodable Q.ValueSpec a
-    -> Q.ValueSpec
+    -> Q.Decodable Q.Spec a
+    -> Q.Spec
     -> Test.Test
-testValueSpec expr decodableValueSpec expectedValueSpec =
-    test ("ValueSpec for " ++ expr)
+testSpec expr decodableSpec expectedSpec =
+    test ("Spec for " ++ expr)
         <| \() ->
-            decodableValueSpec
+            decodableSpec
                 |> Q.getNode
-                |> Expect.equal expectedValueSpec
+                |> Expect.equal expectedSpec
 
 
 testDecoder :
     String
-    -> Q.Decodable Q.ValueSpec a
+    -> Q.Decodable Q.Spec a
     -> String
     -> a
     -> Test.Test
-testDecoder expr decodableValueSpec testJSON expectedResult =
+testDecoder expr decodableSpec testJSON expectedResult =
     test ("Decoder for " ++ expr)
         <| \() ->
-            decodableValueSpec
+            decodableSpec
                 |> Q.getDecoder
                 |> flip Decode.decodeString testJSON
                 |> Expect.equal (Ok expectedResult)
@@ -36,42 +36,42 @@ testDecoder expr decodableValueSpec testJSON expectedResult =
 
 tests : List Test.Test
 tests =
-    [ testValueSpec "int"
+    [ testSpec "int"
         Q.int
         Q.IntSpec
     , testDecoder "int"
         Q.int
         "1234"
         1234
-    , testValueSpec "float"
+    , testSpec "float"
         Q.float
         Q.FloatSpec
     , testDecoder "float"
         Q.float
         "12.34"
         12.34
-    , testValueSpec "string"
+    , testSpec "string"
         Q.string
         Q.StringSpec
     , testDecoder "string"
         Q.string
         "\"hello\""
         "hello"
-    , testValueSpec "bool"
+    , testSpec "bool"
         Q.bool
         Q.BooleanSpec
     , testDecoder "bool"
         Q.bool
         "true"
         True
-    , testValueSpec "(list int)"
+    , testSpec "(list int)"
         (Q.list Q.int)
         (Q.ListSpec Q.IntSpec)
     , testDecoder "(list int)"
         (Q.list Q.int)
         "[1, 2, 3]"
         [ 1, 2, 3 ]
-    , testValueSpec "(object (,) |> withField ...)"
+    , testSpec "(object (,) |> withField ...)"
         (Q.object (,)
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
@@ -81,7 +81,7 @@ tests =
                 [ Q.FieldSelection
                     (Q.Field
                         { name = "name"
-                        , valueSpec = Q.StringSpec
+                        , spec = Q.StringSpec
                         , fieldAlias = Nothing
                         , args = []
                         , directives = []
@@ -90,7 +90,7 @@ tests =
                 , Q.FieldSelection
                     (Q.Field
                         { name = "number"
-                        , valueSpec = Q.IntSpec
+                        , spec = Q.IntSpec
                         , fieldAlias = Nothing
                         , args = []
                         , directives = []

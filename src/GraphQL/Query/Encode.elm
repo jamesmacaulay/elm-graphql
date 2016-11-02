@@ -79,7 +79,7 @@ encodeSelectionSet indentLevel (SelectionSet selections) =
 
 
 encodeField : Int -> Field -> String
-encodeField indentLevel (Field { name, valueSpec, fieldAlias, args, directives }) =
+encodeField indentLevel (Field { name, spec, fieldAlias, args, directives }) =
     let
         aliasString =
             fieldAlias
@@ -93,7 +93,7 @@ encodeField indentLevel (Field { name, valueSpec, fieldAlias, args, directives }
             encodeDirectivesSuffix directives
 
         selectionSetString =
-            case getBaseValueSpec valueSpec of
+            case getBaseSpec spec of
                 ObjectSpec selectionSet ->
                     " " ++ encodeSelectionSet indentLevel selectionSet
 

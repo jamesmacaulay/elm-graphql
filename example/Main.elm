@@ -17,9 +17,9 @@ type alias FilmSummary =
     }
 
 
-extractConnectionNodes : Decodable ValueSpec a -> Decodable ValueSpec (List a)
-extractConnectionNodes valueSpec =
-    (extractField "edges" [] (list (extractField "node" [] valueSpec)))
+extractConnectionNodes : Decodable Spec a -> Decodable Spec (List a)
+extractConnectionNodes spec =
+    (extractField "edges" [] (list (extractField "node" [] spec)))
 
 
 {-| The definition of `starWarsQuery` builds up a decodable query object that
