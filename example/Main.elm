@@ -3,6 +3,7 @@ module Main exposing (..)
 import Html exposing (Html, div, text)
 import Html.App
 import GraphQL.Query exposing (..)
+import GraphQL.Query.Arg as Arg
 import GraphQL.Query.Encode exposing (encodeQuery)
 import Json.Decode
 import Json.Encode
@@ -43,11 +44,11 @@ The same decodable query value is then also used to decode the response into a
 starWarsQuery : Decodable Query FilmSummary
 starWarsQuery =
     extractField "film"
-        [ fieldArgs [ ( "filmID", int' 1 ) ] ]
+        [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
         (object FilmSummary
             |> withField "title" [] (maybe string)
             |> withField "characterConnection"
-                [ fieldArgs [ ( "first", int' 3 ) ] ]
+                [ fieldArgs [ ( "first", Arg.int 3 ) ] ]
                 (extractConnectionNodes (extractField "name" [] (maybe string)))
         )
         |> query []

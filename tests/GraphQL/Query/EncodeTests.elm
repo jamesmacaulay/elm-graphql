@@ -3,6 +3,7 @@ module GraphQL.Query.EncodeTests exposing (..)
 import Test exposing (..)
 import Expect
 import GraphQL.Query as Q
+import GraphQL.Query.Arg as Arg
 import GraphQL.Query.Encode as QE
 
 
@@ -24,11 +25,11 @@ tests =
         <| \() ->
             Q.object identity
                 |> Q.withField "user"
-                    [ Q.fieldArgs [ ( "id", Q.string' "123" ) ] ]
+                    [ Q.fieldArgs [ ( "id", Arg.string "123" ) ] ]
                     (Q.object (,)
                         |> Q.withField "name" [] Q.string
                         |> Q.withField "photos"
-                            [ Q.fieldArgs [ ( "first", Q.int' 10 ) ] ]
+                            [ Q.fieldArgs [ ( "first", Arg.int 10 ) ] ]
                             (Q.list
                                 (Q.object (,)
                                     |> Q.withField "url" [] Q.string

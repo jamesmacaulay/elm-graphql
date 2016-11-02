@@ -1,5 +1,6 @@
 module GraphQL.Query exposing (..)
 
+import GraphQL.Query.Arg as Arg
 import Json.Decode as Decode exposing (Decoder, (:=))
 
 
@@ -45,33 +46,21 @@ type Field
         { name : String
         , valueSpec : ValueSpec
         , fieldAlias : Maybe String
-        , args : List ( String, ArgValue )
+        , args : List ( String, Arg.Value )
         , directives : List Directive
         }
 
 
 type FieldOption
     = FieldAlias String
-    | FieldArgs (List ( String, ArgValue ))
+    | FieldArgs (List ( String, Arg.Value ))
     | FieldDirectives (List Directive)
-
-
-type ArgValue
-    = VariableValue String
-    | IntValue Int
-    | FloatValue Float
-    | StringValue String
-    | BooleanValue Bool
-    | NullValue
-    | EnumValue String
-    | ListValue (List ArgValue)
-    | ObjectValue (List ( String, ArgValue ))
 
 
 type Directive
     = Directive
         { name : String
-        , args : List ( String, ArgValue )
+        , args : List ( String, Arg.Value )
         }
 
 
@@ -139,51 +128,6 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-variable' : String -> ArgValue
-variable' =
-    VariableValue
-
-
-int' : Int -> ArgValue
-int' =
-    IntValue
-
-
-float' : Float -> ArgValue
-float' =
-    FloatValue
-
-
-string' : String -> ArgValue
-string' =
-    StringValue
-
-
-bool' : Bool -> ArgValue
-bool' =
-    BooleanValue
-
-
-null' : ArgValue
-null' =
-    NullValue
-
-
-enum' : String -> ArgValue
-enum' =
-    StringValue
-
-
-object' : List ( String, ArgValue ) -> ArgValue
-object' =
-    ObjectValue
-
-
-list' : List ArgValue -> ArgValue
-list' =
-    ListValue
-
-
 string : Decodable ValueSpec String
 string =
     Decodable StringSpec Decode.string
@@ -228,7 +172,7 @@ fieldAlias =
     FieldAlias
 
 
-fieldArgs : List ( String, ArgValue ) -> FieldOption
+fieldArgs : List ( String, Arg.Value ) -> FieldOption
 fieldArgs =
     FieldArgs
 
@@ -294,10 +238,10 @@ withField name fieldOptions decodableFieldValueSpec decodableParentValueSpec =
                                 }
                                 |> flip (List.foldr applyFieldOption) fieldOptions
 
-                        selections' =
+                        selections =
                             addSelection (FieldSelection field) selections
                     in
-                        ObjectSpec (SelectionSet selections')
+                        ObjectSpec (SelectionSet selections)
 
                 _ ->
                     parentValueSpec
@@ -338,10 +282,10 @@ withFragment decodableFragmentDefinition directives decodableSelectionSet =
                                 , directives = directives
                                 }
 
-                        selections' =
+                        selections =
                             addSelection (FragmentSpreadSelection fragmentSpread) selections
                     in
-                        ObjectSpec (SelectionSet selections')
+                        ObjectSpec (SelectionSet selections)
 
                 _ ->
                     parentValueSpec
@@ -378,10 +322,10 @@ withInlineFragment typeCondition directives decodableFragmentSelectionSet decoda
                                 , selectionSet = fragmentSelectionSet
                                 }
 
-                        selections' =
+                        selections =
                             addSelection (InlineFragmentSelection inlineFragment) selections
                     in
-                        ObjectSpec (SelectionSet selections')
+                        ObjectSpec (SelectionSet selections)
 
                 _ ->
                     parentValueSpec

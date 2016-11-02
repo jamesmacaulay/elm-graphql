@@ -1,49 +1,50 @@
 module GraphQL.Query.Encode exposing (..)
 
 import GraphQL.Query exposing (..)
+import GraphQL.Query.Arg as Arg
 import String
 
 
-encodeArgValue : ArgValue -> String
+encodeArgValue : Arg.Value -> String
 encodeArgValue value =
     case value of
-        VariableValue name ->
+        Arg.VariableValue name ->
             "$" ++ name
 
-        IntValue int ->
+        Arg.IntValue int ->
             toString int
 
-        FloatValue float ->
+        Arg.FloatValue float ->
             toString float
 
-        StringValue string ->
+        Arg.StringValue string ->
             toString string
 
-        BooleanValue True ->
+        Arg.BooleanValue True ->
             "true"
 
-        BooleanValue False ->
+        Arg.BooleanValue False ->
             "false"
 
-        NullValue ->
+        Arg.NullValue ->
             "null"
 
-        EnumValue symbol ->
+        Arg.EnumValue symbol ->
             symbol
 
-        ListValue values ->
+        Arg.ListValue values ->
             values |> List.map encodeArgValue |> toString
 
-        ObjectValue pairs ->
+        Arg.ObjectValue pairs ->
             "{" ++ String.join ", " (List.map encodeArg pairs) ++ "}"
 
 
-encodeArg : ( String, ArgValue ) -> String
+encodeArg : ( String, Arg.Value ) -> String
 encodeArg ( name, value ) =
     name ++ ": " ++ encodeArgValue value
 
 
-encodeArgList : List ( String, ArgValue ) -> String
+encodeArgList : List ( String, Arg.Value ) -> String
 encodeArgList args =
     if List.isEmpty args then
         ""
