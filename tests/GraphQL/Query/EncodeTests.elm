@@ -16,11 +16,11 @@ tests =
                 |> Q.withField "number" [] Q.int
                 |> Q.query []
                 |> Q.getNode
-                |> QE.encodeQuery
-                |> Expect.equal """{
+                |> QE.encodeQueryBuilder
+                |> Expect.equal (Ok """{
   name
   number
-}"""
+}""")
     , test "encoding a more complex query"
         <| \() ->
             Q.object identity
@@ -39,8 +39,8 @@ tests =
                     )
                 |> Q.query [ Q.queryName "userQuery" ]
                 |> Q.getNode
-                |> QE.encodeQuery
-                |> Expect.equal """query userQuery {
+                |> QE.encodeQueryBuilder
+                |> Expect.equal (Ok """query userQuery {
   user(id: "123") {
     name
     photos(first: 10) {
@@ -48,7 +48,7 @@ tests =
       caption
     }
   }
-}"""
+}""")
     ]
 
 

@@ -4,24 +4,40 @@ import Test exposing (..)
 import Expect
 import GraphQL.Query as Q
 import Json.Decode as Decode
+import String
 
 
-testSpec :
+testSpecSuccess :
     String
-    -> Q.Decodable Q.Spec a
+    -> Q.Decodable (Q.Builder Q.Spec) a
     -> Q.Spec
     -> Test.Test
-testSpec expr decodableSpec expectedSpec =
-    test ("Spec for " ++ expr)
+testSpecSuccess expr decodableSpec expectedSpec =
+    test ("Spec success for " ++ expr)
         <| \() ->
             decodableSpec
                 |> Q.getNode
-                |> Expect.equal expectedSpec
+                |> Expect.equal (Q.Builder [] expectedSpec)
+
+
+testSpecErrors :
+    String
+    -> Q.Decodable (Q.Builder Q.Spec) a
+    -> List Q.BuilderError
+    -> Test.Test
+testSpecErrors expr decodableSpec expectedErrors =
+    test ("Spec errors for " ++ expr)
+        <| \() ->
+            let
+                (Q.Builder errors _) =
+                    Q.getNode decodableSpec
+            in
+                Expect.equal expectedErrors errors
 
 
 testDecoder :
     String
-    -> Q.Decodable Q.Spec a
+    -> Q.Decodable (Q.Builder Q.Spec) a
     -> String
     -> a
     -> Test.Test
@@ -36,49 +52,96 @@ testDecoder expr decodableSpec testJSON expectedResult =
 
 tests : List Test.Test
 tests =
-    [ testSpec "int"
+    [ testSpecSuccess "int"
         Q.int
         Q.IntSpec
     , testDecoder "int"
         Q.int
         "1234"
         1234
-    , testSpec "float"
+    , testSpecSuccess "float"
         Q.float
         Q.FloatSpec
     , testDecoder "float"
         Q.float
         "12.34"
         12.34
-    , testSpec "string"
+    , testSpecSuccess "string"
         Q.string
         Q.StringSpec
     , testDecoder "string"
         Q.string
         "\"hello\""
         "hello"
-    , testSpec "bool"
+    , testSpecSuccess "bool"
         Q.bool
         Q.BooleanSpec
     , testDecoder "bool"
         Q.bool
         "true"
         True
-    , testSpec "(list int)"
+    , testSpecSuccess "(list int)"
         (Q.list Q.int)
         (Q.ListSpec Q.IntSpec)
     , testDecoder "(list int)"
         (Q.list Q.int)
         "[1, 2, 3]"
         [ 1, 2, 3 ]
-    , testSpec "(object (,) |> withField ...)"
+    , testSpecSuccess "(object (,) |> withField ...)"
         (Q.object (,)
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
         )
         (Q.ObjectSpec
-            (Q.SelectionSet
-                [ Q.FieldSelection
+            [ Q.FieldSelection
+                (Q.Field
+                    { name = "name"
+                    , spec = Q.StringSpec
+                    , fieldAlias = Nothing
+                    , args = []
+                    , directives = []
+                    }
+                )
+            , Q.FieldSelection
+                (Q.Field
+                    { name = "number"
+                    , spec = Q.IntSpec
+                    , fieldAlias = Nothing
+                    , args = []
+                    , directives = []
+                    }
+                )
+            ]
+        )
+    , testDecoder "(object (,) |> withField ...)"
+        (Q.object (,)
+            |> Q.withField "name" [] Q.string
+            |> Q.withField "number" [] Q.int
+        )
+        "{\"name\":\"Alice\",\"number\":33}"
+        ( "Alice", 33 )
+    , testSpecSuccess "(construct (,) |> andMap ...)"
+        (Q.construct (,)
+            |> Q.andMap (Q.map String.reverse Q.string)
+            |> Q.andMap (Q.map String.length Q.string)
+        )
+        Q.StringSpec
+    , testDecoder "(construct (,) |> andMap ...)"
+        (Q.construct (,)
+            |> Q.andMap (Q.map String.reverse Q.string)
+            |> Q.andMap (Q.map String.length Q.string)
+        )
+        "\"foo\""
+        ( "oof", 3 )
+    , testSpecErrors "(object (,,) ... trying to intersect with int and bool"
+        (Q.object (,,)
+            |> Q.withField "name" [] Q.string
+            |> Q.andMap Q.int
+            |> Q.andMap Q.bool
+        )
+        [ Q.InvalidIntersection
+            (Q.ObjectSpec
+                ([ Q.FieldSelection
                     (Q.Field
                         { name = "name"
                         , spec = Q.StringSpec
@@ -87,18 +150,26 @@ tests =
                         , directives = []
                         }
                     )
-                , Q.FieldSelection
+                 ]
+                )
+            )
+            Q.IntSpec
+        , Q.InvalidIntersection
+            (Q.ObjectSpec
+                ([ Q.FieldSelection
                     (Q.Field
-                        { name = "number"
-                        , spec = Q.IntSpec
+                        { name = "name"
+                        , spec = Q.StringSpec
                         , fieldAlias = Nothing
                         , args = []
                         , directives = []
                         }
                     )
-                ]
+                 ]
+                )
             )
-        )
+            Q.BooleanSpec
+        ]
     ]
 
 

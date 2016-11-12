@@ -10,35 +10,93 @@ type Selection
     | InlineFragmentSelection InlineFragment
 
 
-type SelectionSet
-    = SelectionSet (List Selection)
+type BuilderError
+    = InvalidIntersection Spec Spec
+    | InvalidFragment Spec
 
 
 type Spec
-    = IntSpec
+    = AnySpec
+    | IntSpec
     | FloatSpec
     | StringSpec
     | BooleanSpec
-    | ObjectSpec SelectionSet
+    | ObjectSpec (List Selection)
     | ListSpec Spec
     | MaybeSpec Spec
-    | InvalidSpec String Spec
 
 
 getBaseSpec : Spec -> Spec
 getBaseSpec spec =
     case spec of
         ListSpec inner ->
-            inner
+            getBaseSpec inner
 
         MaybeSpec inner ->
-            inner
-
-        InvalidSpec _ inner ->
-            inner
+            getBaseSpec inner
 
         _ ->
             spec
+
+
+type Builder a
+    = Builder (List BuilderError) a
+
+
+mapBuilder : (a -> b) -> Builder a -> Builder b
+mapBuilder f (Builder errs spec) =
+    Builder errs (f spec)
+
+
+appendSelections : List Selection -> List Selection -> List Selection
+appendSelections a b =
+    a ++ b
+
+
+specIntersection : Spec -> Spec -> Result BuilderError Spec
+specIntersection a b =
+    case ( a, b ) of
+        ( AnySpec, _ ) ->
+            Ok b
+
+        ( _, AnySpec ) ->
+            Ok a
+
+        ( ObjectSpec ssa, ObjectSpec ssb ) ->
+            Ok (ObjectSpec (appendSelections ssa ssb))
+
+        ( ListSpec innerA, ListSpec innerB ) ->
+            specIntersection innerA innerB
+                |> Result.map ListSpec
+
+        ( MaybeSpec innerA, MaybeSpec innerB ) ->
+            specIntersection innerA innerB
+                |> Result.map MaybeSpec
+
+        ( IntSpec, IntSpec ) ->
+            Ok IntSpec
+
+        ( FloatSpec, FloatSpec ) ->
+            Ok FloatSpec
+
+        ( StringSpec, StringSpec ) ->
+            Ok StringSpec
+
+        ( BooleanSpec, BooleanSpec ) ->
+            Ok BooleanSpec
+
+        _ ->
+            Err (InvalidIntersection a b)
+
+
+specBuilderIntersection : Builder Spec -> Builder Spec -> Builder Spec
+specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
+    case specIntersection specA specB of
+        Ok spec ->
+            Builder (errsA ++ errsB) spec
+
+        Err builderError ->
+            Builder (errsA ++ errsB ++ [ builderError ]) specA
 
 
 type Field
@@ -68,7 +126,7 @@ type FragmentDefinition
     = FragmentDefinition
         { name : String
         , typeCondition : String
-        , selectionSet : SelectionSet
+        , spec : Spec
         , directives : List Directive
         }
 
@@ -84,14 +142,14 @@ type InlineFragment
     = InlineFragment
         { typeCondition : Maybe String
         , directives : List Directive
-        , selectionSet : SelectionSet
+        , spec : Spec
         }
 
 
 type Query
     = Query
         { name : Maybe String
-        , selectionSet : SelectionSet
+        , spec : Spec
         }
 
 
@@ -128,43 +186,48 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-string : Decodable Spec String
+string : Decodable (Builder Spec) String
 string =
-    Decodable StringSpec Decode.string
+    Decodable (Builder [] StringSpec) Decode.string
 
 
-int : Decodable Spec Int
+int : Decodable (Builder Spec) Int
 int =
-    Decodable IntSpec Decode.int
+    Decodable (Builder [] IntSpec) Decode.int
 
 
-float : Decodable Spec Float
+float : Decodable (Builder Spec) Float
 float =
-    Decodable FloatSpec Decode.float
+    Decodable (Builder [] FloatSpec) Decode.float
 
 
-bool : Decodable Spec Bool
+bool : Decodable (Builder Spec) Bool
 bool =
-    Decodable BooleanSpec Decode.bool
+    Decodable (Builder [] BooleanSpec) Decode.bool
 
 
-list : Decodable Spec a -> Decodable Spec (List a)
+list : Decodable (Builder Spec) a -> Decodable (Builder Spec) (List a)
 list =
-    mapDecodable ListSpec Decode.list
+    mapDecodable (mapBuilder ListSpec) Decode.list
 
 
-maybe : Decodable Spec a -> Decodable Spec (Maybe a)
+maybe : Decodable (Builder Spec) a -> Decodable (Builder Spec) (Maybe a)
 maybe =
     let
         nullable decoder =
             Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
     in
-        mapDecodable MaybeSpec nullable
+        mapDecodable (mapBuilder MaybeSpec) nullable
 
 
-object : (a -> b) -> Decodable Spec (a -> b)
+construct : (a -> b) -> Decodable (Builder Spec) (a -> b)
+construct constructor =
+    Decodable (Builder [] AnySpec) (Decode.succeed constructor)
+
+
+object : (a -> b) -> Decodable (Builder Spec) (a -> b)
 object constructor =
-    Decodable (ObjectSpec (SelectionSet [])) (Decode.succeed constructor)
+    Decodable (Builder [] (ObjectSpec [])) (Decode.succeed constructor)
 
 
 fieldAlias : String -> FieldOption
@@ -202,161 +265,166 @@ applyQueryOption queryOption (Query queryInfo) =
             Query { queryInfo | name = Just name }
 
 
-addSelection : Selection -> List Selection -> List Selection
-addSelection s selections =
-    selections ++ [ s ]
+map : (a -> b) -> Decodable (Builder Spec) a -> Decodable (Builder Spec) b
+map f =
+    mapDecoder (Decode.map f)
+
+
+andMap : Decodable (Builder Spec) a -> Decodable (Builder Spec) (a -> b) -> Decodable (Builder Spec) b
+andMap (Decodable littleSpecBuilder littleDecoder) (Decodable bigSpecBuilder bigDecoder) =
+    let
+        specBuilder =
+            specBuilderIntersection bigSpecBuilder littleSpecBuilder
+
+        decoder =
+            Decode.object2 (<|) bigDecoder littleDecoder
+    in
+        Decodable specBuilder decoder
+
+
+field : String -> List FieldOption -> Decodable (Builder Spec) a -> Decodable (Builder Spec) a
+field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
+    let
+        field =
+            Field
+                { name = name
+                , spec = valueSpec
+                , fieldAlias = Nothing
+                , args = []
+                , directives = []
+                }
+                |> flip (List.foldr applyFieldOption) fieldOptions
+
+        spec =
+            (ObjectSpec [ FieldSelection field ])
+
+        decoder =
+            (name := valueDecoder)
+    in
+        Decodable (Builder valueErrs spec) decoder
 
 
 withField :
     String
     -> List FieldOption
-    -> Decodable Spec a
-    -> Decodable Spec (a -> b)
-    -> Decodable Spec b
+    -> Decodable (Builder Spec) a
+    -> Decodable (Builder Spec) (a -> b)
+    -> Decodable (Builder Spec) b
 withField name fieldOptions decodableFieldSpec decodableParentSpec =
+    decodableParentSpec
+        |> andMap (field name fieldOptions decodableFieldSpec)
+
+
+extractField : String -> List FieldOption -> Decodable (Builder Spec) a -> Decodable (Builder Spec) a
+extractField =
+    field
+
+
+fragmentSpread : Decodable (Builder FragmentDefinition) a -> List Directive -> Decodable (Builder Spec) (Maybe a)
+fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinition { name })) fragmentDecoder) directives =
     let
-        (Decodable parentSpec parentDecoder) =
-            decodableParentSpec
-
-        (Decodable fieldSpec fieldValueDecoder) =
-            decodableFieldSpec
-
-        decoder =
-            Decode.object2 (<|) parentDecoder (name := fieldValueDecoder)
+        fragmentSpread =
+            FragmentSpread
+                { name = name
+                , directives = directives
+                }
 
         spec =
-            case parentSpec of
-                ObjectSpec (SelectionSet selections) ->
-                    let
-                        field =
-                            Field
-                                { name = name
-                                , spec = fieldSpec
-                                , fieldAlias = Nothing
-                                , args = []
-                                , directives = []
-                                }
-                                |> flip (List.foldr applyFieldOption) fieldOptions
+            ObjectSpec [ FragmentSpreadSelection fragmentSpread ]
 
-                        selections =
-                            addSelection (FieldSelection field) selections
-                    in
-                        ObjectSpec (SelectionSet selections)
-
-                _ ->
-                    parentSpec
-                        |> InvalidSpec ("Tried to add field " ++ toString name ++ " to a non-object: " ++ toString parentSpec)
+        decoder =
+            Decode.maybe fragmentDecoder
     in
-        Decodable spec decoder
-
-
-extractField : String -> List FieldOption -> Decodable Spec a -> Decodable Spec a
-extractField name options child =
-    object identity
-        |> withField name options child
+        Decodable (Builder fragmentErrs spec) decoder
 
 
 withFragment :
-    Decodable FragmentDefinition a
+    Decodable (Builder FragmentDefinition) a
     -> List Directive
-    -> Decodable Spec (Maybe a -> b)
-    -> Decodable Spec b
-withFragment decodableFragmentDefinition directives decodableSelectionSet =
+    -> Decodable (Builder Spec) (Maybe a -> b)
+    -> Decodable (Builder Spec) b
+withFragment decodableFragmentDefinition directives decodableParentSpec =
+    decodableParentSpec
+        |> andMap (fragmentSpread decodableFragmentDefinition directives)
+
+
+inlineFragment :
+    Maybe String
+    -> List Directive
+    -> Decodable (Builder Spec) a
+    -> Decodable (Builder Spec) (Maybe a)
+inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragmentDecoder) =
     let
-        (Decodable (FragmentDefinition fragmentDefinition) fragmentDecoder) =
-            decodableFragmentDefinition
-
-        (Decodable parentSpec parentDecoder) =
-            decodableSelectionSet
-
-        decoder =
-            Decode.object2 (<|) parentDecoder (Decode.maybe fragmentDecoder)
+        inlineFragment =
+            InlineFragment
+                { typeCondition = typeCondition
+                , directives = directives
+                , spec = spec
+                }
 
         spec =
-            case parentSpec of
-                ObjectSpec (SelectionSet selections) ->
-                    let
-                        fragmentSpread =
-                            FragmentSpread
-                                { name = fragmentDefinition.name
-                                , directives = directives
-                                }
+            ObjectSpec [ InlineFragmentSelection inlineFragment ]
 
-                        selections =
-                            addSelection (FragmentSpreadSelection fragmentSpread) selections
-                    in
-                        ObjectSpec (SelectionSet selections)
+        decoder =
+            Decode.maybe fragmentDecoder
+
+        inlineFragmentErrs =
+            case spec of
+                ObjectSpec _ ->
+                    []
 
                 _ ->
-                    parentSpec
-                        |> InvalidSpec ("Tried to add fragment " ++ toString fragmentDefinition.name ++ " to a non-object: " ++ toString parentSpec)
+                    [ InvalidFragment spec ]
     in
-        Decodable spec decoder
+        Decodable (Builder (specErrs ++ inlineFragmentErrs) spec) decoder
 
 
 withInlineFragment :
     Maybe String
     -> List Directive
-    -> Decodable SelectionSet a
-    -> Decodable Spec (Maybe a -> b)
-    -> Decodable Spec b
-withInlineFragment typeCondition directives decodableFragmentSelectionSet decodableParentSpec =
-    let
-        (Decodable fragmentSelectionSet fragmentDecoder) =
-            decodableFragmentSelectionSet
-
-        (Decodable parentSpec objectDecoder) =
-            decodableParentSpec
-
-        decoder =
-            Decode.object2 (<|) objectDecoder (Decode.maybe fragmentDecoder)
-
-        spec =
-            case parentSpec of
-                ObjectSpec (SelectionSet selections) ->
-                    let
-                        inlineFragment =
-                            InlineFragment
-                                { typeCondition = typeCondition
-                                , directives = directives
-                                , selectionSet = fragmentSelectionSet
-                                }
-
-                        selections =
-                            addSelection (InlineFragmentSelection inlineFragment) selections
-                    in
-                        ObjectSpec (SelectionSet selections)
-
-                _ ->
-                    parentSpec
-                        |> InvalidSpec ("Tried to add inline fragment " ++ toString decodableFragmentSelectionSet ++ " to a non-object: " ++ toString parentSpec)
-    in
-        Decodable spec decoder
+    -> Decodable (Builder Spec) a
+    -> Decodable (Builder Spec) (Maybe a -> b)
+    -> Decodable (Builder Spec) b
+withInlineFragment typeCondition directives decodableFragmentSpec decodableParentSpec =
+    decodableParentSpec
+        |> andMap (inlineFragment typeCondition directives decodableFragmentSpec)
 
 
-fragment : String -> String -> List Directive -> Decodable SelectionSet a -> Decodable FragmentDefinition a
+fragment : String -> String -> List Directive -> Decodable (Builder Spec) a -> Decodable (Builder FragmentDefinition) a
 fragment name typeCondition directives =
     mapNode
-        (\selectionSet ->
-            FragmentDefinition
-                { name = name
-                , typeCondition = typeCondition
-                , directives = directives
-                , selectionSet = selectionSet
-                }
+        (\(Builder specErrs spec) ->
+            let
+                fragmentDefinition =
+                    FragmentDefinition
+                        { name = name
+                        , typeCondition = typeCondition
+                        , directives = directives
+                        , spec = spec
+                        }
+
+                fragmentErrs =
+                    case spec of
+                        ObjectSpec _ ->
+                            []
+
+                        _ ->
+                            [ InvalidFragment spec ]
+            in
+                Builder (specErrs ++ fragmentErrs) fragmentDefinition
         )
 
 
-query : List QueryOption -> Decodable Spec a -> Decodable Query a
+query : List QueryOption -> Decodable (Builder Spec) a -> Decodable (Builder Query) a
 query queryOptions =
-    mapNode
+    (mapNode << mapBuilder)
         (\spec ->
             (case spec of
-                ObjectSpec selectionSet ->
-                    Query { name = Nothing, selectionSet = selectionSet }
+                ObjectSpec selections ->
+                    Query { name = Nothing, spec = spec }
 
                 _ ->
-                    Query { name = Nothing, selectionSet = (SelectionSet []) }
+                    Query { name = Nothing, spec = ObjectSpec [] }
             )
                 |> flip (List.foldr applyQueryOption) queryOptions
         )

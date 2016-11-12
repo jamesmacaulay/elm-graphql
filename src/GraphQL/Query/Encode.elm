@@ -70,12 +70,32 @@ indent level string =
         "  " ++ indent (level - 1) string
 
 
-encodeSelectionSet : Int -> SelectionSet -> String
-encodeSelectionSet indentLevel (SelectionSet selections) =
+encodeSelections : Int -> List Selection -> String
+encodeSelections indentLevel selections =
     "{\n"
         ++ String.join "\n" (List.map (encodeSelection (indentLevel + 1)) selections)
         ++ "\n"
         ++ indent indentLevel "}"
+
+
+encodeSelectionSet : Int -> Spec -> String
+encodeSelectionSet indentLevel spec =
+    case getBaseSpec spec of
+        ObjectSpec selections ->
+            encodeSelections indentLevel selections
+
+        _ ->
+            ""
+
+
+encodeSelectionSetSuffix : Int -> Spec -> String
+encodeSelectionSetSuffix indentLevel spec =
+    case getBaseSpec spec of
+        ObjectSpec selections ->
+            " " ++ encodeSelections indentLevel selections
+
+        _ ->
+            ""
 
 
 encodeField : Int -> Field -> String
@@ -93,12 +113,7 @@ encodeField indentLevel (Field { name, spec, fieldAlias, args, directives }) =
             encodeDirectivesSuffix directives
 
         selectionSetString =
-            case getBaseSpec spec of
-                ObjectSpec selectionSet ->
-                    " " ++ encodeSelectionSet indentLevel selectionSet
-
-                _ ->
-                    ""
+            encodeSelectionSetSuffix indentLevel spec
     in
         indent indentLevel (aliasString ++ name ++ argsString ++ directivesString ++ selectionSetString)
 
@@ -126,7 +141,7 @@ encodeFragmentSpread indentLevel (FragmentSpread { name, directives }) =
 
 
 encodeInlineFragment : Int -> InlineFragment -> String
-encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, selectionSet }) =
+encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, spec }) =
     let
         typeConditionString =
             typeCondition
@@ -137,16 +152,19 @@ encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, se
             encodeDirectivesSuffix directives
 
         selectionSetString =
-            " " ++ encodeSelectionSet indentLevel selectionSet
+            encodeSelectionSetSuffix indentLevel spec
     in
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
 
-encodeQuery : Query -> String
-encodeQuery (Query { name, selectionSet }) =
-    case name of
-        Just name' ->
-            "query " ++ name' ++ " " ++ encodeSelectionSet 0 selectionSet
+encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
+encodeQueryBuilder (Builder errs (Query { name, spec })) =
+    if List.isEmpty errs then
+        case name of
+            Just justName ->
+                Ok ("query " ++ justName ++ encodeSelectionSetSuffix 0 spec)
 
-        Nothing ->
-            encodeSelectionSet 0 selectionSet
+            Nothing ->
+                Ok (encodeSelectionSet 0 spec)
+    else
+        Err errs
