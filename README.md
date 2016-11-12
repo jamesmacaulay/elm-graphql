@@ -36,7 +36,7 @@ type alias User =
 Then you build a query:
 
 ```elm
-userQuery : Decodable (Builder Query) User
+userQuery : Query User
 userQuery =
     let
         photo =
@@ -66,14 +66,14 @@ Here's what the above query looks like when you encode it to a string to be sent
 }
 ```
 
-Aside from generating query strings, `Decodable (Builder Query)` values let you do two other important things:
+Aside from generating query strings, `Query` values let you do two other important things:
   
   * they can be validated against a GraphQL schema (_not yet_), and
   * they can be used to decode JSON responses from the server.
 
 In most cases you will probably want to do all of your application's query validation as part of your unit tests. This involves decoding a standard GraphQL introspection reponse into a `GraphQL.Schema.Schema` value, and using functions from `GraphQL.Schema` to validate a query against that specific schema.
 
-Assuming you've built a valid query for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Decodable (Builder Query) User` value, using a JSON decoder that is built up along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
+Assuming you've built a valid query for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Query User` value, using a JSON decoder that is built up along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
 
 ```
 {

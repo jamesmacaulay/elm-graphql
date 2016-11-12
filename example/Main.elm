@@ -17,7 +17,7 @@ type alias FilmSummary =
     }
 
 
-extractConnectionNodes : Decodable (Builder Spec) a -> Decodable (Builder Spec) (List a)
+extractConnectionNodes : Spec a -> Spec (List a)
 extractConnectionNodes spec =
     (extractField "edges" [] (list (extractField "node" [] spec)))
 
@@ -41,7 +41,7 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsQuery : Decodable (Builder Query) FilmSummary
+starWarsQuery : Query FilmSummary
 starWarsQuery =
     extractField "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
@@ -67,7 +67,7 @@ type Msg
     = ReceiveQueryResponse (Result Error FilmSummary)
 
 
-performStarWarsQuery : Decodable (Builder Query) a -> Task Error a
+performStarWarsQuery : Query a -> Task Error a
 performStarWarsQuery decodableQuery =
     case (decodableQuery |> getNode |> encodeQueryBuilder) of
         Ok query ->

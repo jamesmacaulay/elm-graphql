@@ -11,22 +11,22 @@ type Selection
 
 
 type BuilderError
-    = InvalidIntersection Spec Spec
-    | InvalidFragment Spec
+    = InvalidIntersection SpecStructure SpecStructure
+    | InvalidFragment SpecStructure
 
 
-type Spec
+type SpecStructure
     = AnySpec
     | IntSpec
     | FloatSpec
     | StringSpec
     | BooleanSpec
     | ObjectSpec (List Selection)
-    | ListSpec Spec
-    | MaybeSpec Spec
+    | ListSpec SpecStructure
+    | MaybeSpec SpecStructure
 
 
-getBaseSpec : Spec -> Spec
+getBaseSpec : SpecStructure -> SpecStructure
 getBaseSpec spec =
     case spec of
         ListSpec inner ->
@@ -43,6 +43,18 @@ type Builder a
     = Builder (List BuilderError) a
 
 
+type alias Spec a =
+    Decodable (Builder SpecStructure) a
+
+
+type alias FragmentDefinition a =
+    Decodable (Builder FragmentDefinitionStructure) a
+
+
+type alias Query a =
+    Decodable (Builder QueryStructure) a
+
+
 mapBuilder : (a -> b) -> Builder a -> Builder b
 mapBuilder f (Builder errs spec) =
     Builder errs (f spec)
@@ -53,7 +65,7 @@ appendSelections a b =
     a ++ b
 
 
-specIntersection : Spec -> Spec -> Result BuilderError Spec
+specIntersection : SpecStructure -> SpecStructure -> Result BuilderError SpecStructure
 specIntersection a b =
     case ( a, b ) of
         ( AnySpec, _ ) ->
@@ -89,7 +101,7 @@ specIntersection a b =
             Err (InvalidIntersection a b)
 
 
-specBuilderIntersection : Builder Spec -> Builder Spec -> Builder Spec
+specBuilderIntersection : Builder SpecStructure -> Builder SpecStructure -> Builder SpecStructure
 specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
     case specIntersection specA specB of
         Ok spec ->
@@ -102,7 +114,7 @@ specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
 type Field
     = Field
         { name : String
-        , spec : Spec
+        , spec : SpecStructure
         , fieldAlias : Maybe String
         , args : List ( String, Arg.Value )
         , directives : List Directive
@@ -122,11 +134,11 @@ type Directive
         }
 
 
-type FragmentDefinition
-    = FragmentDefinition
+type FragmentDefinitionStructure
+    = FragmentDefinitionStructure
         { name : String
         , typeCondition : String
-        , spec : Spec
+        , spec : SpecStructure
         , directives : List Directive
         }
 
@@ -142,14 +154,14 @@ type InlineFragment
     = InlineFragment
         { typeCondition : Maybe String
         , directives : List Directive
-        , spec : Spec
+        , spec : SpecStructure
         }
 
 
-type Query
-    = Query
+type QueryStructure
+    = QueryStructure
         { name : Maybe String
-        , spec : Spec
+        , spec : SpecStructure
         }
 
 
@@ -186,32 +198,32 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-string : Decodable (Builder Spec) String
+string : Spec String
 string =
     Decodable (Builder [] StringSpec) Decode.string
 
 
-int : Decodable (Builder Spec) Int
+int : Spec Int
 int =
     Decodable (Builder [] IntSpec) Decode.int
 
 
-float : Decodable (Builder Spec) Float
+float : Spec Float
 float =
     Decodable (Builder [] FloatSpec) Decode.float
 
 
-bool : Decodable (Builder Spec) Bool
+bool : Spec Bool
 bool =
     Decodable (Builder [] BooleanSpec) Decode.bool
 
 
-list : Decodable (Builder Spec) a -> Decodable (Builder Spec) (List a)
+list : Spec a -> Spec (List a)
 list =
     mapDecodable (mapBuilder ListSpec) Decode.list
 
 
-maybe : Decodable (Builder Spec) a -> Decodable (Builder Spec) (Maybe a)
+maybe : Spec a -> Spec (Maybe a)
 maybe =
     let
         nullable decoder =
@@ -220,12 +232,12 @@ maybe =
         mapDecodable (mapBuilder MaybeSpec) nullable
 
 
-construct : (a -> b) -> Decodable (Builder Spec) (a -> b)
+construct : (a -> b) -> Spec (a -> b)
 construct constructor =
     Decodable (Builder [] AnySpec) (Decode.succeed constructor)
 
 
-object : (a -> b) -> Decodable (Builder Spec) (a -> b)
+object : (a -> b) -> Spec (a -> b)
 object constructor =
     Decodable (Builder [] (ObjectSpec [])) (Decode.succeed constructor)
 
@@ -258,23 +270,23 @@ queryName =
     QueryName
 
 
-applyQueryOption : QueryOption -> Query -> Query
-applyQueryOption queryOption (Query queryInfo) =
+applyQueryOption : QueryOption -> QueryStructure -> QueryStructure
+applyQueryOption queryOption (QueryStructure queryInfo) =
     case queryOption of
         QueryName name ->
-            Query { queryInfo | name = Just name }
+            QueryStructure { queryInfo | name = Just name }
 
 
-map : (a -> b) -> Decodable (Builder Spec) a -> Decodable (Builder Spec) b
+map : (a -> b) -> Spec a -> Spec b
 map f =
     mapDecoder (Decode.map f)
 
 
-andMap : Decodable (Builder Spec) a -> Decodable (Builder Spec) (a -> b) -> Decodable (Builder Spec) b
-andMap (Decodable littleSpecBuilder littleDecoder) (Decodable bigSpecBuilder bigDecoder) =
+andMap : Spec a -> Spec (a -> b) -> Spec b
+andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
     let
         specBuilder =
-            specBuilderIntersection bigSpecBuilder littleSpecBuilder
+            specBuilderIntersection bigSpec littleSpec
 
         decoder =
             Decode.object2 (<|) bigDecoder littleDecoder
@@ -282,7 +294,7 @@ andMap (Decodable littleSpecBuilder littleDecoder) (Decodable bigSpecBuilder big
         Decodable specBuilder decoder
 
 
-field : String -> List FieldOption -> Decodable (Builder Spec) a -> Decodable (Builder Spec) a
+field : String -> List FieldOption -> Spec a -> Spec a
 field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
     let
         field =
@@ -307,21 +319,21 @@ field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
 withField :
     String
     -> List FieldOption
-    -> Decodable (Builder Spec) a
-    -> Decodable (Builder Spec) (a -> b)
-    -> Decodable (Builder Spec) b
+    -> Spec a
+    -> Spec (a -> b)
+    -> Spec b
 withField name fieldOptions decodableFieldSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (field name fieldOptions decodableFieldSpec)
 
 
-extractField : String -> List FieldOption -> Decodable (Builder Spec) a -> Decodable (Builder Spec) a
+extractField : String -> List FieldOption -> Spec a -> Spec a
 extractField =
     field
 
 
-fragmentSpread : Decodable (Builder FragmentDefinition) a -> List Directive -> Decodable (Builder Spec) (Maybe a)
-fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinition { name })) fragmentDecoder) directives =
+fragmentSpread : FragmentDefinition a -> List Directive -> Spec (Maybe a)
+fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinitionStructure { name })) fragmentDecoder) directives =
     let
         fragmentSpread =
             FragmentSpread
@@ -339,10 +351,10 @@ fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinition { name })) f
 
 
 withFragment :
-    Decodable (Builder FragmentDefinition) a
+    FragmentDefinition a
     -> List Directive
-    -> Decodable (Builder Spec) (Maybe a -> b)
-    -> Decodable (Builder Spec) b
+    -> Spec (Maybe a -> b)
+    -> Spec b
 withFragment decodableFragmentDefinition directives decodableParentSpec =
     decodableParentSpec
         |> andMap (fragmentSpread decodableFragmentDefinition directives)
@@ -351,8 +363,8 @@ withFragment decodableFragmentDefinition directives decodableParentSpec =
 inlineFragment :
     Maybe String
     -> List Directive
-    -> Decodable (Builder Spec) a
-    -> Decodable (Builder Spec) (Maybe a)
+    -> Spec a
+    -> Spec (Maybe a)
 inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragmentDecoder) =
     let
         inlineFragment =
@@ -382,21 +394,21 @@ inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragm
 withInlineFragment :
     Maybe String
     -> List Directive
-    -> Decodable (Builder Spec) a
-    -> Decodable (Builder Spec) (Maybe a -> b)
-    -> Decodable (Builder Spec) b
+    -> Spec a
+    -> Spec (Maybe a -> b)
+    -> Spec b
 withInlineFragment typeCondition directives decodableFragmentSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (inlineFragment typeCondition directives decodableFragmentSpec)
 
 
-fragment : String -> String -> List Directive -> Decodable (Builder Spec) a -> Decodable (Builder FragmentDefinition) a
+fragment : String -> String -> List Directive -> Spec a -> FragmentDefinition a
 fragment name typeCondition directives =
     mapNode
         (\(Builder specErrs spec) ->
             let
                 fragmentDefinition =
-                    FragmentDefinition
+                    FragmentDefinitionStructure
                         { name = name
                         , typeCondition = typeCondition
                         , directives = directives
@@ -415,16 +427,16 @@ fragment name typeCondition directives =
         )
 
 
-query : List QueryOption -> Decodable (Builder Spec) a -> Decodable (Builder Query) a
+query : List QueryOption -> Spec a -> Query a
 query queryOptions =
     (mapNode << mapBuilder)
         (\spec ->
             (case spec of
                 ObjectSpec selections ->
-                    Query { name = Nothing, spec = spec }
+                    QueryStructure { name = Nothing, spec = spec }
 
                 _ ->
-                    Query { name = Nothing, spec = ObjectSpec [] }
+                    QueryStructure { name = Nothing, spec = ObjectSpec [] }
             )
                 |> flip (List.foldr applyQueryOption) queryOptions
         )

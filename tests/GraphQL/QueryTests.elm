@@ -9,8 +9,8 @@ import String
 
 testSpecSuccess :
     String
-    -> Q.Decodable (Q.Builder Q.Spec) a
-    -> Q.Spec
+    -> Q.Spec a
+    -> Q.SpecStructure
     -> Test.Test
 testSpecSuccess expr decodableSpec expectedSpec =
     test ("Spec success for " ++ expr)
@@ -22,7 +22,7 @@ testSpecSuccess expr decodableSpec expectedSpec =
 
 testSpecErrors :
     String
-    -> Q.Decodable (Q.Builder Q.Spec) a
+    -> Q.Spec a
     -> List Q.BuilderError
     -> Test.Test
 testSpecErrors expr decodableSpec expectedErrors =
@@ -37,7 +37,7 @@ testSpecErrors expr decodableSpec expectedErrors =
 
 testDecoder :
     String
-    -> Q.Decodable (Q.Builder Q.Spec) a
+    -> Q.Spec a
     -> String
     -> a
     -> Test.Test

@@ -78,7 +78,7 @@ encodeSelections indentLevel selections =
         ++ indent indentLevel "}"
 
 
-encodeSelectionSet : Int -> Spec -> String
+encodeSelectionSet : Int -> SpecStructure -> String
 encodeSelectionSet indentLevel spec =
     case getBaseSpec spec of
         ObjectSpec selections ->
@@ -88,7 +88,7 @@ encodeSelectionSet indentLevel spec =
             ""
 
 
-encodeSelectionSetSuffix : Int -> Spec -> String
+encodeSelectionSetSuffix : Int -> SpecStructure -> String
 encodeSelectionSetSuffix indentLevel spec =
     case getBaseSpec spec of
         ObjectSpec selections ->
@@ -157,8 +157,8 @@ encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, sp
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
 
-encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
-encodeQueryBuilder (Builder errs (Query { name, spec })) =
+encodeQueryBuilder : Builder QueryStructure -> Result (List BuilderError) String
+encodeQueryBuilder (Builder errs (QueryStructure { name, spec })) =
     if List.isEmpty errs then
         case name of
             Just justName ->
