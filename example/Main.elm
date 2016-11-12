@@ -4,7 +4,7 @@ import Html exposing (Html, div, text)
 import Html.App
 import GraphQL.Query exposing (..)
 import GraphQL.Query.Arg as Arg
-import GraphQL.Query.Encode exposing (encodeQuery)
+import GraphQL.Query.Encode exposing (encodeQueryBuilder)
 import Json.Decode
 import Json.Encode
 import Http
@@ -17,7 +17,7 @@ type alias FilmSummary =
     }
 
 
-extractConnectionNodes : Decodable Spec a -> Decodable Spec (List a)
+extractConnectionNodes : Decodable (Builder Spec) a -> Decodable (Builder Spec) (List a)
 extractConnectionNodes spec =
     (extractField "edges" [] (list (extractField "node" [] spec)))
 
@@ -41,7 +41,7 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsQuery : Decodable Query FilmSummary
+starWarsQuery : Decodable (Builder Query) FilmSummary
 starWarsQuery =
     extractField "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
@@ -54,40 +54,49 @@ starWarsQuery =
         |> query []
 
 
+type Error
+    = HttpError Http.Error
+    | InvalidQueryError (List BuilderError)
+
+
 type alias Model =
-    Maybe (Result Http.Error FilmSummary)
+    Maybe (Result Error FilmSummary)
 
 
 type Msg
-    = ReceiveQueryResponse (Result Http.Error FilmSummary)
+    = ReceiveQueryResponse (Result Error FilmSummary)
 
 
-performStarWarsQuery : Decodable Query a -> Task Http.Error a
+performStarWarsQuery : Decodable (Builder Query) a -> Task Error a
 performStarWarsQuery decodableQuery =
-    let
-        body =
-            decodableQuery
-                |> getNode
-                |> encodeQuery
-                |> Json.Encode.string
-                |> (\q -> Json.Encode.object [ ( "query", q ) ])
-                |> Json.Encode.encode 0
-                |> Http.string
+    case (decodableQuery |> getNode |> encodeQueryBuilder) of
+        Ok query ->
+            let
+                body =
+                    query
+                        |> Json.Encode.string
+                        |> (\q -> Json.Encode.object [ ( "query", q ) ])
+                        |> Json.Encode.encode 0
+                        |> Http.string
 
-        request =
-            { verb = "POST"
-            , headers =
-                [ ( "Content-Type", "application/json" )
-                ]
-            , url = "/"
-            , body = body
-            }
+                request =
+                    { verb = "POST"
+                    , headers =
+                        [ ( "Content-Type", "application/json" )
+                        ]
+                    , url = "/"
+                    , body = body
+                    }
 
-        decoder =
-            getDecoder decodableQuery |> Json.Decode.at [ "data" ]
-    in
-        Http.send Http.defaultSettings request
-            |> Http.fromJson decoder
+                decoder =
+                    getDecoder decodableQuery |> Json.Decode.at [ "data" ]
+            in
+                Http.send Http.defaultSettings request
+                    |> Http.fromJson decoder
+                    |> Task.mapError HttpError
+
+        Err errs ->
+            Task.fail (InvalidQueryError errs)
 
 
 main : Program Never
