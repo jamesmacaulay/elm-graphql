@@ -1,7 +1,7 @@
 module GraphQL.Query exposing (..)
 
 import GraphQL.Query.Arg as Arg
-import Json.Decode as Decode exposing (Decoder, (:=))
+import Json.Decode as Decode exposing (Decoder)
 
 
 type Selection
@@ -289,7 +289,7 @@ andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
             specBuilderIntersection bigSpec littleSpec
 
         decoder =
-            Decode.object2 (<|) bigDecoder littleDecoder
+            Decode.map2 (<|) bigDecoder littleDecoder
     in
         Decodable specBuilder decoder
 
@@ -311,7 +311,7 @@ field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
             (ObjectSpec [ FieldSelection field ])
 
         decoder =
-            (name := valueDecoder)
+            (Decode.field name valueDecoder)
     in
         Decodable (Builder valueErrs spec) decoder
 
@@ -367,28 +367,28 @@ inlineFragment :
     -> Spec (Maybe a)
 inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragmentDecoder) =
     let
-        inlineFragment =
+        inlineFragment_ =
             InlineFragment
                 { typeCondition = typeCondition
                 , directives = directives
                 , spec = spec
                 }
 
-        spec =
-            ObjectSpec [ InlineFragmentSelection inlineFragment ]
+        spec_ =
+            ObjectSpec [ InlineFragmentSelection inlineFragment_ ]
 
         decoder =
             Decode.maybe fragmentDecoder
 
         inlineFragmentErrs =
-            case spec of
+            case spec_ of
                 ObjectSpec _ ->
                     []
 
                 _ ->
-                    [ InvalidFragment spec ]
+                    [ InvalidFragment spec_ ]
     in
-        Decodable (Builder (specErrs ++ inlineFragmentErrs) spec) decoder
+        Decodable (Builder (specErrs ++ inlineFragmentErrs) spec_) decoder
 
 
 withInlineFragment :

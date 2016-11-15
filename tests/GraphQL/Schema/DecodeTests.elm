@@ -240,8 +240,8 @@ almostValidSchemaJSON =
 
 tests : List Test.Test
 tests =
-    [ test "scalarTypeDecoder"
-        <| \() ->
+    [ test "scalarTypeDecoder" <|
+        \() ->
             scalarTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.scalarTypeDecoder
                 |> Expect.equal
@@ -252,8 +252,8 @@ tests =
                             }
                         )
                     )
-    , test "objectTypeDecoder"
-        <| \() ->
+    , test "objectTypeDecoder" <|
+        \() ->
             objectTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.objectTypeDecoder
                 |> Expect.equal
@@ -280,8 +280,8 @@ tests =
                             }
                         )
                     )
-    , test "unionTypeDecoder"
-        <| \() ->
+    , test "unionTypeDecoder" <|
+        \() ->
             unionTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.unionTypeDecoder
                 |> Expect.equal
@@ -293,8 +293,8 @@ tests =
                             }
                         )
                     )
-    , test "interfaceTypeDecoder"
-        <| \() ->
+    , test "interfaceTypeDecoder" <|
+        \() ->
             interfaceTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.interfaceTypeDecoder
                 |> Expect.equal
@@ -321,8 +321,8 @@ tests =
                             }
                         )
                     )
-    , test "enumTypeDecoder"
-        <| \() ->
+    , test "enumTypeDecoder" <|
+        \() ->
             enumTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.enumTypeDecoder
                 |> Expect.equal
@@ -345,8 +345,8 @@ tests =
                             }
                         )
                     )
-    , test "inputObjectTypeDecoder"
-        <| \() ->
+    , test "inputObjectTypeDecoder" <|
+        \() ->
             inputObjectTypeJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.inputObjectTypeDecoder
                 |> Expect.equal
@@ -364,8 +364,8 @@ tests =
                             }
                         )
                     )
-    , test "directiveDecoder"
-        <| \() ->
+    , test "directiveDecoder" <|
+        \() ->
             directiveJSON
                 |> Decode.decodeString GraphQL.Schema.Decode.directiveDecoder
                 |> Expect.equal
@@ -386,8 +386,8 @@ tests =
                             ]
                         }
                     )
-    , test "schemaDecoder"
-        <| \() ->
+    , test "schemaDecoder" <|
+        \() ->
             let
                 decodeResult =
                     almostValidSchemaJSON

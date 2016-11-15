@@ -1,7 +1,6 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, text)
-import Html.App
 import GraphQL.Query exposing (..)
 import GraphQL.Query.Arg as Arg
 import GraphQL.Query.Encode exposing (encodeQueryBuilder)
@@ -76,32 +75,23 @@ performStarWarsQuery decodableQuery =
                     query
                         |> Json.Encode.string
                         |> (\q -> Json.Encode.object [ ( "query", q ) ])
-                        |> Json.Encode.encode 0
-                        |> Http.string
-
-                request =
-                    { verb = "POST"
-                    , headers =
-                        [ ( "Content-Type", "application/json" )
-                        ]
-                    , url = "/"
-                    , body = body
-                    }
+                        |> Http.jsonBody
 
                 decoder =
                     getDecoder decodableQuery |> Json.Decode.at [ "data" ]
+
+                request =
+                    Http.post "/" body decoder
             in
-                Http.send Http.defaultSettings request
-                    |> Http.fromJson decoder
-                    |> Task.mapError HttpError
+                Http.toTask request |> Task.mapError HttpError
 
         Err errs ->
             Task.fail (InvalidQueryError errs)
 
 
-main : Program Never
+main : Program Never Model Msg
 main =
-    Html.App.program
+    Html.program
         { init = init
         , view = view
         , update = update
@@ -111,10 +101,9 @@ main =
 
 init : ( Model, Cmd Msg )
 init =
-    Nothing
-        ! [ performStarWarsQuery starWarsQuery
-                |> Task.perform (Err >> ReceiveQueryResponse) (Ok >> ReceiveQueryResponse)
-          ]
+    ( Nothing
+    , performStarWarsQuery starWarsQuery |> Task.attempt ReceiveQueryResponse
+    )
 
 
 view : Model -> Html Msg

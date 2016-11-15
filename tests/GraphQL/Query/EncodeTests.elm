@@ -9,8 +9,8 @@ import GraphQL.Query.Encode as QE
 
 tests : List Test.Test
 tests =
-    [ test "encoding a very simple query"
-        <| \() ->
+    [ test "encoding a very simple query" <|
+        \() ->
             Q.object (,)
                 |> Q.withField "name" [] Q.string
                 |> Q.withField "number" [] Q.int
@@ -21,8 +21,8 @@ tests =
   name
   number
 }""")
-    , test "encoding a more complex query"
-        <| \() ->
+    , test "encoding a more complex query" <|
+        \() ->
             Q.object identity
                 |> Q.withField "user"
                     [ Q.fieldArgs [ ( "id", Arg.string "123" ) ] ]

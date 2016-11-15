@@ -103,7 +103,7 @@ encodeField indentLevel (Field { name, spec, fieldAlias, args, directives }) =
     let
         aliasString =
             fieldAlias
-                |> Maybe.map (\fieldAlias' -> fieldAlias' ++ ": ")
+                |> Maybe.map (\x -> x ++ ": ")
                 |> Maybe.withDefault ""
 
         argsString =

@@ -13,8 +13,8 @@ testSpecSuccess :
     -> Q.SpecStructure
     -> Test.Test
 testSpecSuccess expr decodableSpec expectedSpec =
-    test ("Spec success for " ++ expr)
-        <| \() ->
+    test ("Spec success for " ++ expr) <|
+        \() ->
             decodableSpec
                 |> Q.getNode
                 |> Expect.equal (Q.Builder [] expectedSpec)
@@ -26,8 +26,8 @@ testSpecErrors :
     -> List Q.BuilderError
     -> Test.Test
 testSpecErrors expr decodableSpec expectedErrors =
-    test ("Spec errors for " ++ expr)
-        <| \() ->
+    test ("Spec errors for " ++ expr) <|
+        \() ->
             let
                 (Q.Builder errors _) =
                     Q.getNode decodableSpec
@@ -42,8 +42,8 @@ testDecoder :
     -> a
     -> Test.Test
 testDecoder expr decodableSpec testJSON expectedResult =
-    test ("Decoder for " ++ expr)
-        <| \() ->
+    test ("Decoder for " ++ expr) <|
+        \() ->
             decodableSpec
                 |> Q.getDecoder
                 |> flip Decode.decodeString testJSON
