@@ -48,27 +48,27 @@ getDecoder (Decodable _ decoder) =
 
 string : Spec String
 string =
-    Decodable (Structure.Builder [] Structure.StringSpec) Decode.string
+    Decodable Structure.string Decode.string
 
 
 int : Spec Int
 int =
-    Decodable (Structure.Builder [] Structure.IntSpec) Decode.int
+    Decodable Structure.int Decode.int
 
 
 float : Spec Float
 float =
-    Decodable (Structure.Builder [] Structure.FloatSpec) Decode.float
+    Decodable Structure.float Decode.float
 
 
 bool : Spec Bool
 bool =
-    Decodable (Structure.Builder [] Structure.BooleanSpec) Decode.bool
+    Decodable Structure.bool Decode.bool
 
 
 list : Spec a -> Spec (List a)
 list =
-    mapDecodable (Structure.mapBuilder Structure.ListSpec) Decode.list
+    mapDecodable Structure.list Decode.list
 
 
 maybe : Spec a -> Spec (Maybe a)
@@ -77,17 +77,17 @@ maybe =
         nullable decoder =
             Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
     in
-        mapDecodable (Structure.mapBuilder Structure.MaybeSpec) nullable
+        mapDecodable Structure.maybe nullable
 
 
 construct : (a -> b) -> Spec (a -> b)
 construct constructor =
-    Decodable (Structure.Builder [] Structure.AnySpec) (Decode.succeed constructor)
+    Decodable Structure.any (Decode.succeed constructor)
 
 
 object : (a -> b) -> Spec (a -> b)
 object constructor =
-    Decodable (Structure.Builder [] (Structure.ObjectSpec [])) (Decode.succeed constructor)
+    Decodable Structure.object (Decode.succeed constructor)
 
 
 fieldAlias : String -> Structure.FieldOption

@@ -168,3 +168,43 @@ specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
 
         Err builderError ->
             Builder (errsA ++ errsB ++ [ builderError ]) specA
+
+
+string : Builder Spec
+string =
+    Builder [] StringSpec
+
+
+int : Builder Spec
+int =
+    Builder [] IntSpec
+
+
+float : Builder Spec
+float =
+    Builder [] FloatSpec
+
+
+bool : Builder Spec
+bool =
+    Builder [] BooleanSpec
+
+
+list : Builder Spec -> Builder Spec
+list =
+    mapBuilder ListSpec
+
+
+maybe : Builder Spec -> Builder Spec
+maybe =
+    mapBuilder MaybeSpec
+
+
+any : Builder Spec
+any =
+    Builder [] AnySpec
+
+
+object : Builder Spec
+object =
+    Builder [] (ObjectSpec [])
