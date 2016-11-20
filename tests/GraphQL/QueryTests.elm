@@ -3,6 +3,7 @@ module GraphQL.QueryTests exposing (..)
 import Test exposing (..)
 import Expect
 import GraphQL.Query as Q
+import GraphQL.Query.Builder.Structure as S
 import Json.Decode as Decode
 import String
 
@@ -10,7 +11,7 @@ import String
 testSpecSuccess :
     String
     -> Q.Spec a
-    -> Q.SpecStructure
+    -> S.Spec
     -> Test.Test
 testSpecSuccess expr decodableSpec expectedSpec =
     test ("Spec success for " ++ expr) <|
@@ -54,35 +55,35 @@ tests : List Test.Test
 tests =
     [ testSpecSuccess "int"
         Q.int
-        Q.IntSpec
+        S.IntSpec
     , testDecoder "int"
         Q.int
         "1234"
         1234
     , testSpecSuccess "float"
         Q.float
-        Q.FloatSpec
+        S.FloatSpec
     , testDecoder "float"
         Q.float
         "12.34"
         12.34
     , testSpecSuccess "string"
         Q.string
-        Q.StringSpec
+        S.StringSpec
     , testDecoder "string"
         Q.string
         "\"hello\""
         "hello"
     , testSpecSuccess "bool"
         Q.bool
-        Q.BooleanSpec
+        S.BooleanSpec
     , testDecoder "bool"
         Q.bool
         "true"
         True
     , testSpecSuccess "(list int)"
         (Q.list Q.int)
-        (Q.ListSpec Q.IntSpec)
+        (S.ListSpec S.IntSpec)
     , testDecoder "(list int)"
         (Q.list Q.int)
         "[1, 2, 3]"
@@ -92,25 +93,21 @@ tests =
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
         )
-        (Q.ObjectSpec
-            [ Q.FieldSelection
-                (Q.Field
-                    { name = "name"
-                    , spec = Q.StringSpec
-                    , fieldAlias = Nothing
-                    , args = []
-                    , directives = []
-                    }
-                )
-            , Q.FieldSelection
-                (Q.Field
-                    { name = "number"
-                    , spec = Q.IntSpec
-                    , fieldAlias = Nothing
-                    , args = []
-                    , directives = []
-                    }
-                )
+        (S.ObjectSpec
+            [ S.FieldSelection
+                { name = "name"
+                , spec = S.StringSpec
+                , fieldAlias = Nothing
+                , args = []
+                , directives = []
+                }
+            , S.FieldSelection
+                { name = "number"
+                , spec = S.IntSpec
+                , fieldAlias = Nothing
+                , args = []
+                , directives = []
+                }
             ]
         )
     , testDecoder "(object (,) |> withField ...)"
@@ -125,7 +122,7 @@ tests =
             |> Q.andMap (Q.map String.reverse Q.string)
             |> Q.andMap (Q.map String.length Q.string)
         )
-        Q.StringSpec
+        S.StringSpec
     , testDecoder "(construct (,) |> andMap ...)"
         (Q.construct (,)
             |> Q.andMap (Q.map String.reverse Q.string)
@@ -140,35 +137,31 @@ tests =
             |> Q.andMap Q.bool
         )
         [ Q.InvalidIntersection
-            (Q.ObjectSpec
-                ([ Q.FieldSelection
-                    (Q.Field
-                        { name = "name"
-                        , spec = Q.StringSpec
-                        , fieldAlias = Nothing
-                        , args = []
-                        , directives = []
-                        }
-                    )
+            (S.ObjectSpec
+                ([ S.FieldSelection
+                    { name = "name"
+                    , spec = S.StringSpec
+                    , fieldAlias = Nothing
+                    , args = []
+                    , directives = []
+                    }
                  ]
                 )
             )
-            Q.IntSpec
+            S.IntSpec
         , Q.InvalidIntersection
-            (Q.ObjectSpec
-                ([ Q.FieldSelection
-                    (Q.Field
-                        { name = "name"
-                        , spec = Q.StringSpec
-                        , fieldAlias = Nothing
-                        , args = []
-                        , directives = []
-                        }
-                    )
+            (S.ObjectSpec
+                ([ S.FieldSelection
+                    { name = "name"
+                    , spec = S.StringSpec
+                    , fieldAlias = Nothing
+                    , args = []
+                    , directives = []
+                    }
                  ]
                 )
             )
-            Q.BooleanSpec
+            S.BooleanSpec
         ]
     ]
 

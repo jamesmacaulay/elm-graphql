@@ -1,6 +1,7 @@
 module GraphQL.Query.Encode exposing (..)
 
-import GraphQL.Query exposing (..)
+import GraphQL.Query as Query
+import GraphQL.Query.Builder.Structure exposing (..)
 import GraphQL.Query.Arg as Arg
 import String
 
@@ -53,7 +54,7 @@ encodeArgList args =
 
 
 encodeDirective : Directive -> String
-encodeDirective (Directive { name, args }) =
+encodeDirective { name, args } =
     "@" ++ name ++ encodeArgList args
 
 
@@ -78,7 +79,7 @@ encodeSelections indentLevel selections =
         ++ indent indentLevel "}"
 
 
-encodeSelectionSet : Int -> SpecStructure -> String
+encodeSelectionSet : Int -> Spec -> String
 encodeSelectionSet indentLevel spec =
     case getBaseSpec spec of
         ObjectSpec selections ->
@@ -88,7 +89,7 @@ encodeSelectionSet indentLevel spec =
             ""
 
 
-encodeSelectionSetSuffix : Int -> SpecStructure -> String
+encodeSelectionSetSuffix : Int -> Spec -> String
 encodeSelectionSetSuffix indentLevel spec =
     case getBaseSpec spec of
         ObjectSpec selections ->
@@ -99,7 +100,7 @@ encodeSelectionSetSuffix indentLevel spec =
 
 
 encodeField : Int -> Field -> String
-encodeField indentLevel (Field { name, spec, fieldAlias, args, directives }) =
+encodeField indentLevel { name, spec, fieldAlias, args, directives } =
     let
         aliasString =
             fieldAlias
@@ -132,7 +133,7 @@ encodeSelection indentLevel selection =
 
 
 encodeFragmentSpread : Int -> FragmentSpread -> String
-encodeFragmentSpread indentLevel (FragmentSpread { name, directives }) =
+encodeFragmentSpread indentLevel { name, directives } =
     let
         directivesString =
             encodeDirectivesSuffix directives
@@ -141,7 +142,7 @@ encodeFragmentSpread indentLevel (FragmentSpread { name, directives }) =
 
 
 encodeInlineFragment : Int -> InlineFragment -> String
-encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, spec }) =
+encodeInlineFragment indentLevel { typeCondition, directives, spec } =
     let
         typeConditionString =
             typeCondition
@@ -157,8 +158,8 @@ encodeInlineFragment indentLevel (InlineFragment { typeCondition, directives, sp
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
 
-encodeQueryBuilder : Builder QueryStructure -> Result (List BuilderError) String
-encodeQueryBuilder (Builder errs (QueryStructure { name, spec })) =
+encodeQueryBuilder : Query.Builder Query -> Result (List Query.BuilderError) String
+encodeQueryBuilder (Query.Builder errs { name, spec }) =
     if List.isEmpty errs then
         case name of
             Just justName ->

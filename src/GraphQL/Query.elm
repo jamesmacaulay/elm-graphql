@@ -1,42 +1,33 @@
 module GraphQL.Query exposing (..)
 
+import GraphQL.Query.Builder.Structure as Structure
 import GraphQL.Query.Arg as Arg
 import Json.Decode as Decode exposing (Decoder)
 
 
-type Selection
-    = FieldSelection Field
-    | FragmentSpreadSelection FragmentSpread
-    | InlineFragmentSelection InlineFragment
-
-
 type BuilderError
-    = InvalidIntersection SpecStructure SpecStructure
-    | InvalidFragment SpecStructure
+    = InvalidIntersection Structure.Spec Structure.Spec
+    | InvalidFragment Structure.Spec
 
 
-type SpecStructure
-    = AnySpec
-    | IntSpec
-    | FloatSpec
-    | StringSpec
-    | BooleanSpec
-    | ObjectSpec (List Selection)
-    | ListSpec SpecStructure
-    | MaybeSpec SpecStructure
 
-
-getBaseSpec : SpecStructure -> SpecStructure
-getBaseSpec spec =
-    case spec of
-        ListSpec inner ->
-            getBaseSpec inner
-
-        MaybeSpec inner ->
-            getBaseSpec inner
-
-        _ ->
-            spec
+-- specToSummaryString : Structure.Spec -> String
+-- specToSummaryString spec =
+--     case spec of
+--         Structure.AnySpec ->
+--             "any"
+--         Structure.IntSpec ->
+--             "int"
+--         Structure.FloatSpec ->
+--             "float"
+--         Structure.StringSpec ->
+--             "string"
+--         Structure.BooleanSpec ->
+--             "bool"
+--         Structure.ObjectSpec selections ->
+--             "object with fields " ++ selectionsToSummaryString selections
+--         Structure.ListSpec inner ->
+--             "list of " ++ specToSummaryString inner
 
 
 type Builder a
@@ -44,15 +35,15 @@ type Builder a
 
 
 type alias Spec a =
-    Decodable (Builder SpecStructure) a
+    Decodable (Builder Structure.Spec) a
 
 
 type alias FragmentDefinition a =
-    Decodable (Builder FragmentDefinitionStructure) a
+    Decodable (Builder Structure.FragmentDefinition) a
 
 
 type alias Query a =
-    Decodable (Builder QueryStructure) a
+    Decodable (Builder Structure.Query) a
 
 
 mapBuilder : (a -> b) -> Builder a -> Builder b
@@ -60,48 +51,48 @@ mapBuilder f (Builder errs spec) =
     Builder errs (f spec)
 
 
-appendSelections : List Selection -> List Selection -> List Selection
+appendSelections : List Structure.Selection -> List Structure.Selection -> List Structure.Selection
 appendSelections a b =
     a ++ b
 
 
-specIntersection : SpecStructure -> SpecStructure -> Result BuilderError SpecStructure
+specIntersection : Structure.Spec -> Structure.Spec -> Result BuilderError Structure.Spec
 specIntersection a b =
     case ( a, b ) of
-        ( AnySpec, _ ) ->
+        ( Structure.AnySpec, _ ) ->
             Ok b
 
-        ( _, AnySpec ) ->
+        ( _, Structure.AnySpec ) ->
             Ok a
 
-        ( ObjectSpec ssa, ObjectSpec ssb ) ->
-            Ok (ObjectSpec (appendSelections ssa ssb))
+        ( Structure.ObjectSpec ssa, Structure.ObjectSpec ssb ) ->
+            Ok (Structure.ObjectSpec (appendSelections ssa ssb))
 
-        ( ListSpec innerA, ListSpec innerB ) ->
+        ( Structure.ListSpec innerA, Structure.ListSpec innerB ) ->
             specIntersection innerA innerB
-                |> Result.map ListSpec
+                |> Result.map Structure.ListSpec
 
-        ( MaybeSpec innerA, MaybeSpec innerB ) ->
+        ( Structure.MaybeSpec innerA, Structure.MaybeSpec innerB ) ->
             specIntersection innerA innerB
-                |> Result.map MaybeSpec
+                |> Result.map Structure.MaybeSpec
 
-        ( IntSpec, IntSpec ) ->
-            Ok IntSpec
+        ( Structure.IntSpec, Structure.IntSpec ) ->
+            Ok Structure.IntSpec
 
-        ( FloatSpec, FloatSpec ) ->
-            Ok FloatSpec
+        ( Structure.FloatSpec, Structure.FloatSpec ) ->
+            Ok Structure.FloatSpec
 
-        ( StringSpec, StringSpec ) ->
-            Ok StringSpec
+        ( Structure.StringSpec, Structure.StringSpec ) ->
+            Ok Structure.StringSpec
 
-        ( BooleanSpec, BooleanSpec ) ->
-            Ok BooleanSpec
+        ( Structure.BooleanSpec, Structure.BooleanSpec ) ->
+            Ok Structure.BooleanSpec
 
         _ ->
             Err (InvalidIntersection a b)
 
 
-specBuilderIntersection : Builder SpecStructure -> Builder SpecStructure -> Builder SpecStructure
+specBuilderIntersection : Builder Structure.Spec -> Builder Structure.Spec -> Builder Structure.Spec
 specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
     case specIntersection specA specB of
         Ok spec ->
@@ -109,64 +100,6 @@ specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
 
         Err builderError ->
             Builder (errsA ++ errsB ++ [ builderError ]) specA
-
-
-type Field
-    = Field
-        { name : String
-        , spec : SpecStructure
-        , fieldAlias : Maybe String
-        , args : List ( String, Arg.Value )
-        , directives : List Directive
-        }
-
-
-type FieldOption
-    = FieldAlias String
-    | FieldArgs (List ( String, Arg.Value ))
-    | FieldDirectives (List Directive)
-
-
-type Directive
-    = Directive
-        { name : String
-        , args : List ( String, Arg.Value )
-        }
-
-
-type FragmentDefinitionStructure
-    = FragmentDefinitionStructure
-        { name : String
-        , typeCondition : String
-        , spec : SpecStructure
-        , directives : List Directive
-        }
-
-
-type FragmentSpread
-    = FragmentSpread
-        { name : String
-        , directives : List Directive
-        }
-
-
-type InlineFragment
-    = InlineFragment
-        { typeCondition : Maybe String
-        , directives : List Directive
-        , spec : SpecStructure
-        }
-
-
-type QueryStructure
-    = QueryStructure
-        { name : Maybe String
-        , spec : SpecStructure
-        }
-
-
-type QueryOption
-    = QueryName String
 
 
 type Decodable node result
@@ -200,27 +133,27 @@ getDecoder (Decodable _ decoder) =
 
 string : Spec String
 string =
-    Decodable (Builder [] StringSpec) Decode.string
+    Decodable (Builder [] Structure.StringSpec) Decode.string
 
 
 int : Spec Int
 int =
-    Decodable (Builder [] IntSpec) Decode.int
+    Decodable (Builder [] Structure.IntSpec) Decode.int
 
 
 float : Spec Float
 float =
-    Decodable (Builder [] FloatSpec) Decode.float
+    Decodable (Builder [] Structure.FloatSpec) Decode.float
 
 
 bool : Spec Bool
 bool =
-    Decodable (Builder [] BooleanSpec) Decode.bool
+    Decodable (Builder [] Structure.BooleanSpec) Decode.bool
 
 
 list : Spec a -> Spec (List a)
 list =
-    mapDecodable (mapBuilder ListSpec) Decode.list
+    mapDecodable (mapBuilder Structure.ListSpec) Decode.list
 
 
 maybe : Spec a -> Spec (Maybe a)
@@ -229,52 +162,52 @@ maybe =
         nullable decoder =
             Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
     in
-        mapDecodable (mapBuilder MaybeSpec) nullable
+        mapDecodable (mapBuilder Structure.MaybeSpec) nullable
 
 
 construct : (a -> b) -> Spec (a -> b)
 construct constructor =
-    Decodable (Builder [] AnySpec) (Decode.succeed constructor)
+    Decodable (Builder [] Structure.AnySpec) (Decode.succeed constructor)
 
 
 object : (a -> b) -> Spec (a -> b)
 object constructor =
-    Decodable (Builder [] (ObjectSpec [])) (Decode.succeed constructor)
+    Decodable (Builder [] (Structure.ObjectSpec [])) (Decode.succeed constructor)
 
 
-fieldAlias : String -> FieldOption
+fieldAlias : String -> Structure.FieldOption
 fieldAlias =
-    FieldAlias
+    Structure.FieldAlias
 
 
-fieldArgs : List ( String, Arg.Value ) -> FieldOption
+fieldArgs : List ( String, Arg.Value ) -> Structure.FieldOption
 fieldArgs =
-    FieldArgs
+    Structure.FieldArgs
 
 
-applyFieldOption : FieldOption -> Field -> Field
-applyFieldOption fieldOption (Field fieldInfo) =
+applyFieldOption : Structure.FieldOption -> Structure.Field -> Structure.Field
+applyFieldOption fieldOption field =
     case fieldOption of
-        FieldAlias name ->
-            Field { fieldInfo | fieldAlias = Just name }
+        Structure.FieldAlias name ->
+            { field | fieldAlias = Just name }
 
-        FieldArgs args ->
-            Field { fieldInfo | args = fieldInfo.args ++ args }
+        Structure.FieldArgs args ->
+            { field | args = field.args ++ args }
 
-        FieldDirectives directives ->
-            Field { fieldInfo | directives = fieldInfo.directives ++ directives }
+        Structure.FieldDirectives directives ->
+            { field | directives = field.directives ++ directives }
 
 
-queryName : String -> QueryOption
+queryName : String -> Structure.QueryOption
 queryName =
-    QueryName
+    Structure.QueryName
 
 
-applyQueryOption : QueryOption -> QueryStructure -> QueryStructure
-applyQueryOption queryOption (QueryStructure queryInfo) =
+applyQueryOption : Structure.QueryOption -> Structure.Query -> Structure.Query
+applyQueryOption queryOption query =
     case queryOption of
-        QueryName name ->
-            QueryStructure { queryInfo | name = Just name }
+        Structure.QueryName name ->
+            { query | name = Just name }
 
 
 map : (a -> b) -> Spec a -> Spec b
@@ -294,21 +227,20 @@ andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
         Decodable specBuilder decoder
 
 
-field : String -> List FieldOption -> Spec a -> Spec a
+field : String -> List Structure.FieldOption -> Spec a -> Spec a
 field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
     let
         field =
-            Field
-                { name = name
-                , spec = valueSpec
-                , fieldAlias = Nothing
-                , args = []
-                , directives = []
-                }
+            { name = name
+            , spec = valueSpec
+            , fieldAlias = Nothing
+            , args = []
+            , directives = []
+            }
                 |> flip (List.foldr applyFieldOption) fieldOptions
 
         spec =
-            (ObjectSpec [ FieldSelection field ])
+            (Structure.ObjectSpec [ Structure.FieldSelection field ])
 
         decoder =
             (Decode.field name valueDecoder)
@@ -318,7 +250,7 @@ field name fieldOptions (Decodable (Builder valueErrs valueSpec) valueDecoder) =
 
 withField :
     String
-    -> List FieldOption
+    -> List Structure.FieldOption
     -> Spec a
     -> Spec (a -> b)
     -> Spec b
@@ -327,22 +259,21 @@ withField name fieldOptions decodableFieldSpec decodableParentSpec =
         |> andMap (field name fieldOptions decodableFieldSpec)
 
 
-extractField : String -> List FieldOption -> Spec a -> Spec a
+extractField : String -> List Structure.FieldOption -> Spec a -> Spec a
 extractField =
     field
 
 
-fragmentSpread : FragmentDefinition a -> List Directive -> Spec (Maybe a)
-fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinitionStructure { name })) fragmentDecoder) directives =
+fragmentSpread : FragmentDefinition a -> List Structure.Directive -> Spec (Maybe a)
+fragmentSpread (Decodable (Builder fragmentErrs { name }) fragmentDecoder) directives =
     let
         fragmentSpread =
-            FragmentSpread
-                { name = name
-                , directives = directives
-                }
+            { name = name
+            , directives = directives
+            }
 
         spec =
-            ObjectSpec [ FragmentSpreadSelection fragmentSpread ]
+            Structure.ObjectSpec [ Structure.FragmentSpreadSelection fragmentSpread ]
 
         decoder =
             Decode.maybe fragmentDecoder
@@ -352,7 +283,7 @@ fragmentSpread (Decodable (Builder fragmentErrs (FragmentDefinitionStructure { n
 
 withFragment :
     FragmentDefinition a
-    -> List Directive
+    -> List Structure.Directive
     -> Spec (Maybe a -> b)
     -> Spec b
 withFragment decodableFragmentDefinition directives decodableParentSpec =
@@ -362,27 +293,26 @@ withFragment decodableFragmentDefinition directives decodableParentSpec =
 
 inlineFragment :
     Maybe String
-    -> List Directive
+    -> List Structure.Directive
     -> Spec a
     -> Spec (Maybe a)
 inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragmentDecoder) =
     let
         inlineFragment_ =
-            InlineFragment
-                { typeCondition = typeCondition
-                , directives = directives
-                , spec = spec
-                }
+            { typeCondition = typeCondition
+            , directives = directives
+            , spec = spec
+            }
 
         spec_ =
-            ObjectSpec [ InlineFragmentSelection inlineFragment_ ]
+            Structure.ObjectSpec [ Structure.InlineFragmentSelection inlineFragment_ ]
 
         decoder =
             Decode.maybe fragmentDecoder
 
         inlineFragmentErrs =
             case spec_ of
-                ObjectSpec _ ->
+                Structure.ObjectSpec _ ->
                     []
 
                 _ ->
@@ -393,7 +323,7 @@ inlineFragment typeCondition directives (Decodable (Builder specErrs spec) fragm
 
 withInlineFragment :
     Maybe String
-    -> List Directive
+    -> List Structure.Directive
     -> Spec a
     -> Spec (Maybe a -> b)
     -> Spec b
@@ -402,22 +332,21 @@ withInlineFragment typeCondition directives decodableFragmentSpec decodableParen
         |> andMap (inlineFragment typeCondition directives decodableFragmentSpec)
 
 
-fragment : String -> String -> List Directive -> Spec a -> FragmentDefinition a
+fragment : String -> String -> List Structure.Directive -> Spec a -> FragmentDefinition a
 fragment name typeCondition directives =
     mapNode
         (\(Builder specErrs spec) ->
             let
                 fragmentDefinition =
-                    FragmentDefinitionStructure
-                        { name = name
-                        , typeCondition = typeCondition
-                        , directives = directives
-                        , spec = spec
-                        }
+                    { name = name
+                    , typeCondition = typeCondition
+                    , directives = directives
+                    , spec = spec
+                    }
 
                 fragmentErrs =
                     case spec of
-                        ObjectSpec _ ->
+                        Structure.ObjectSpec _ ->
                             []
 
                         _ ->
@@ -427,16 +356,16 @@ fragment name typeCondition directives =
         )
 
 
-query : List QueryOption -> Spec a -> Query a
+query : List Structure.QueryOption -> Spec a -> Query a
 query queryOptions =
     (mapNode << mapBuilder)
         (\spec ->
             (case spec of
-                ObjectSpec selections ->
-                    QueryStructure { name = Nothing, spec = spec }
+                Structure.ObjectSpec selections ->
+                    { name = Nothing, spec = spec }
 
                 _ ->
-                    QueryStructure { name = Nothing, spec = ObjectSpec [] }
+                    { name = Nothing, spec = Structure.ObjectSpec [] }
             )
                 |> flip (List.foldr applyQueryOption) queryOptions
         )

@@ -3,6 +3,7 @@ module GraphQL.Query.EncodeTests exposing (..)
 import Test exposing (..)
 import Expect
 import GraphQL.Query as Q
+import GraphQL.Query.Builder.Structure as S
 import GraphQL.Query.Arg as Arg
 import GraphQL.Query.Encode as QE
 
