@@ -18,19 +18,19 @@ testSpecSuccess expr decodableSpec expectedSpec =
         \() ->
             decodableSpec
                 |> Q.getNode
-                |> Expect.equal (Q.Builder [] expectedSpec)
+                |> Expect.equal (S.Builder [] expectedSpec)
 
 
 testSpecErrors :
     String
     -> Q.Spec a
-    -> List Q.BuilderError
+    -> List S.BuilderError
     -> Test.Test
 testSpecErrors expr decodableSpec expectedErrors =
     test ("Spec errors for " ++ expr) <|
         \() ->
             let
-                (Q.Builder errors _) =
+                (S.Builder errors _) =
                     Q.getNode decodableSpec
             in
                 Expect.equal expectedErrors errors
@@ -136,7 +136,7 @@ tests =
             |> Q.andMap Q.int
             |> Q.andMap Q.bool
         )
-        [ Q.InvalidIntersection
+        [ S.InvalidIntersection
             (S.ObjectSpec
                 ([ S.FieldSelection
                     { name = "name"
@@ -149,7 +149,7 @@ tests =
                 )
             )
             S.IntSpec
-        , Q.InvalidIntersection
+        , S.InvalidIntersection
             (S.ObjectSpec
                 ([ S.FieldSelection
                     { name = "name"

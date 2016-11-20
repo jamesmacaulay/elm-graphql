@@ -83,3 +83,88 @@ getBaseSpec spec =
 
         _ ->
             spec
+
+
+type BuilderError
+    = InvalidIntersection Spec Spec
+    | InvalidFragment Spec
+
+
+
+-- specToSummaryString : Spec -> String
+-- specToSummaryString spec =
+--     case spec of
+--         AnySpec ->
+--             "any"
+--         IntSpec ->
+--             "int"
+--         FloatSpec ->
+--             "float"
+--         StringSpec ->
+--             "string"
+--         BooleanSpec ->
+--             "bool"
+--         ObjectSpec selections ->
+--             "object with fields " ++ selectionsToSummaryString selections
+--         ListSpec inner ->
+--             "list of " ++ specToSummaryString inner
+
+
+type Builder a
+    = Builder (List BuilderError) a
+
+
+mapBuilder : (a -> b) -> Builder a -> Builder b
+mapBuilder f (Builder errs spec) =
+    Builder errs (f spec)
+
+
+appendSelections : List Selection -> List Selection -> List Selection
+appendSelections a b =
+    a ++ b
+
+
+specIntersection : Spec -> Spec -> Result BuilderError Spec
+specIntersection a b =
+    case ( a, b ) of
+        ( AnySpec, _ ) ->
+            Ok b
+
+        ( _, AnySpec ) ->
+            Ok a
+
+        ( ObjectSpec ssa, ObjectSpec ssb ) ->
+            Ok (ObjectSpec (appendSelections ssa ssb))
+
+        ( ListSpec innerA, ListSpec innerB ) ->
+            specIntersection innerA innerB
+                |> Result.map ListSpec
+
+        ( MaybeSpec innerA, MaybeSpec innerB ) ->
+            specIntersection innerA innerB
+                |> Result.map MaybeSpec
+
+        ( IntSpec, IntSpec ) ->
+            Ok IntSpec
+
+        ( FloatSpec, FloatSpec ) ->
+            Ok FloatSpec
+
+        ( StringSpec, StringSpec ) ->
+            Ok StringSpec
+
+        ( BooleanSpec, BooleanSpec ) ->
+            Ok BooleanSpec
+
+        _ ->
+            Err (InvalidIntersection a b)
+
+
+specBuilderIntersection : Builder Spec -> Builder Spec -> Builder Spec
+specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
+    case specIntersection specA specB of
+        Ok spec ->
+            Builder (errsA ++ errsB) spec
+
+        Err builderError ->
+            Builder (errsA ++ errsB ++ [ builderError ]) specA

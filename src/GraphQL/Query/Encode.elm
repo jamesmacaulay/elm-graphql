@@ -158,8 +158,8 @@ encodeInlineFragment indentLevel { typeCondition, directives, spec } =
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
 
-encodeQueryBuilder : Query.Builder Query -> Result (List Query.BuilderError) String
-encodeQueryBuilder (Query.Builder errs { name, spec }) =
+encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
+encodeQueryBuilder (Builder errs { name, spec }) =
     if List.isEmpty errs then
         case name of
             Just justName ->
