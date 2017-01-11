@@ -71,13 +71,14 @@ list =
     mapDecodable Structure.list Decode.list
 
 
-maybe : Spec a -> Spec (Maybe a)
-maybe =
-    let
-        nullable decoder =
-            Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
-    in
-        mapDecodable Structure.maybe nullable
+nullableDecoder : Decoder a -> Decoder (Maybe a)
+nullableDecoder decoder =
+    Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
+
+
+nullable : Spec a -> Spec (Maybe a)
+nullable =
+    mapDecodable Structure.nullable nullableDecoder
 
 
 construct : (a -> b) -> Spec (a -> b)

@@ -81,6 +81,17 @@ tests =
         Q.bool
         "true"
         True
+    , testSpecSuccess "(nullable int)"
+        (Q.nullable Q.int)
+        (S.NullableSpec S.IntSpec)
+    , testDecoder "(nullable int) decoding int"
+        (Q.nullable Q.int)
+        "1"
+        (Just 1)
+    , testDecoder "(nullable int) decoding null"
+        (Q.nullable Q.int)
+        "null"
+        Nothing
     , testSpecSuccess "(list int)"
         (Q.list Q.int)
         (S.ListSpec S.IntSpec)

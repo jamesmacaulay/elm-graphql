@@ -17,7 +17,7 @@ type Spec
     | BooleanSpec
     | ObjectSpec (List Selection)
     | ListSpec Spec
-    | MaybeSpec Spec
+    | NullableSpec Spec
 
 
 type alias Field =
@@ -78,7 +78,7 @@ getBaseSpec spec =
         ListSpec inner ->
             getBaseSpec inner
 
-        MaybeSpec inner ->
+        NullableSpec inner ->
             getBaseSpec inner
 
         _ ->
@@ -140,9 +140,9 @@ specIntersection a b =
             specIntersection innerA innerB
                 |> Result.map ListSpec
 
-        ( MaybeSpec innerA, MaybeSpec innerB ) ->
+        ( NullableSpec innerA, NullableSpec innerB ) ->
             specIntersection innerA innerB
-                |> Result.map MaybeSpec
+                |> Result.map NullableSpec
 
         ( IntSpec, IntSpec ) ->
             Ok IntSpec
@@ -195,9 +195,9 @@ list =
     mapBuilder ListSpec
 
 
-maybe : Builder Spec -> Builder Spec
-maybe =
-    mapBuilder MaybeSpec
+nullable : Builder Spec -> Builder Spec
+nullable =
+    mapBuilder NullableSpec
 
 
 any : Builder Spec
