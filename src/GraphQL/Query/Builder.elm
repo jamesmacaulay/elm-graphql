@@ -1,7 +1,7 @@
-module GraphQL.Query exposing (..)
+module GraphQL.Query.Builder exposing (..)
 
 import GraphQL.Query.Builder.Structure as Structure
-import GraphQL.Query.Arg as Arg
+import GraphQL.Query.Builder.Arg as Arg
 import Json.Decode as Decode exposing (Decoder)
 
 

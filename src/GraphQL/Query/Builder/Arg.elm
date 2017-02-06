@@ -1,4 +1,4 @@
-module GraphQL.Query.Arg exposing (..)
+module GraphQL.Query.Builder.Arg exposing (..)
 
 
 type Value

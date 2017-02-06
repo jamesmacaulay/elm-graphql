@@ -1,11 +1,10 @@
-module GraphQL.Query.EncodeTests exposing (..)
+module GraphQL.Query.Builder.EncodeTests exposing (..)
 
 import Test exposing (..)
 import Expect
-import GraphQL.Query as Q
-import GraphQL.Query.Builder.Structure as S
-import GraphQL.Query.Arg as Arg
-import GraphQL.Query.Encode as QE
+import GraphQL.Query.Builder as Q
+import GraphQL.Query.Builder.Arg as Arg
+import GraphQL.Query.Builder.Encode as QE
 
 
 tests : List Test.Test
@@ -53,6 +52,6 @@ tests =
     ]
 
 
-all : Test
+all : Test.Test
 all =
     describe "GraphQL.Query.Encode" tests

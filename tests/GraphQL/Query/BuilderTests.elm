@@ -1,8 +1,8 @@
-module GraphQL.QueryTests exposing (..)
+module GraphQL.Query.BuilderTests exposing (..)
 
 import Test exposing (..)
 import Expect
-import GraphQL.Query as Q
+import GraphQL.Query.Builder as Q
 import GraphQL.Query.Builder.Structure as S
 import Json.Decode as Decode
 import String
@@ -177,6 +177,6 @@ tests =
     ]
 
 
-all : Test
+all : Test.Test
 all =
     describe "GraphQL.Query" tests

@@ -1,6 +1,6 @@
 module GraphQL.Query.Builder.Structure exposing (..)
 
-import GraphQL.Query.Arg as Arg
+import GraphQL.Query.Builder.Arg as Arg
 
 
 type Selection

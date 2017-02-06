@@ -1,8 +1,7 @@
-module GraphQL.Query.Encode exposing (..)
+module GraphQL.Query.Builder.Encode exposing (..)
 
-import GraphQL.Query as Query
 import GraphQL.Query.Builder.Structure exposing (..)
-import GraphQL.Query.Arg as Arg
+import GraphQL.Query.Builder.Arg as Arg
 import String
 
 

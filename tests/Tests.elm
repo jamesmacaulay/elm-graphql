@@ -2,14 +2,14 @@ module Tests exposing (..)
 
 import Test exposing (..)
 import GraphQL.Schema.DecodeTests
-import GraphQL.QueryTests
-import GraphQL.Query.EncodeTests
+import GraphQL.Query.BuilderTests
+import GraphQL.Query.Builder.EncodeTests
 
 
 all : Test
 all =
     describe "All"
         [ GraphQL.Schema.DecodeTests.all
-        , GraphQL.QueryTests.all
-        , GraphQL.Query.EncodeTests.all
+        , GraphQL.Query.BuilderTests.all
+        , GraphQL.Query.Builder.EncodeTests.all
         ]
