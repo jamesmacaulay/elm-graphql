@@ -99,26 +99,6 @@ type BuilderError
     | InvalidFragment Spec
 
 
-
--- specToSummaryString : Spec -> String
--- specToSummaryString spec =
---     case spec of
---         AnySpec ->
---             "any"
---         IntSpec ->
---             "int"
---         FloatSpec ->
---             "float"
---         StringSpec ->
---             "string"
---         BooleanSpec ->
---             "bool"
---         ObjectSpec selections ->
---             "object with fields " ++ selectionsToSummaryString selections
---         ListSpec inner ->
---             "list of " ++ specToSummaryString inner
-
-
 type Builder a
     = Builder (List BuilderError) a
 

@@ -189,10 +189,10 @@ field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) value
                 |> flip (List.foldl applyFieldOption) fieldOptions
 
         spec =
-            (Structure.ObjectSpec [ Structure.FieldSelection field ])
+            Structure.ObjectSpec [ Structure.FieldSelection field ]
 
         decoder =
-            (Decode.field name valueDecoder)
+            Decode.field name valueDecoder
     in
         Decodable (Structure.Builder valueErrs spec) decoder
 
