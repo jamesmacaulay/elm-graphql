@@ -45,10 +45,11 @@ tests =
                     [ Q.queryName "userQuery"
                     , Q.queryVariable "userId" "String!"
                     , Q.queryVariableWithDefault "skipName" "Boolean" Arg.true
+                    , Q.queryDirective "someQueryDirective" [ ( "foo", Arg.string "bar" ) ]
                     ]
                 |> Q.getNode
                 |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """query userQuery($userId: String!, $skipName: Boolean = true) {
+                |> Expect.equal (Ok """query userQuery($userId: String!, $skipName: Boolean = true) @someQueryDirective(foo: "bar") {
   user(id: $userId) {
     name @skip(if: $skipName)
     photos(first: 10) {

@@ -177,7 +177,7 @@ encodeVariableDefinitionList variableDefinitions =
 
 
 encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
-encodeQueryBuilder (Builder errs { name, variables, spec }) =
+encodeQueryBuilder (Builder errs { name, variables, directives, spec }) =
     if List.isEmpty errs then
         let
             nameAndVariables =
@@ -188,7 +188,10 @@ encodeQueryBuilder (Builder errs { name, variables, spec }) =
                     ""
                 else
                     " "
+
+            directivesString =
+                encodeDirectivesSuffix directives
         in
-            Ok ("query" ++ spacer ++ nameAndVariables ++ encodeSelectionSetSuffix 0 spec)
+            Ok ("query" ++ spacer ++ nameAndVariables ++ directivesString ++ encodeSelectionSetSuffix 0 spec)
     else
         Err errs

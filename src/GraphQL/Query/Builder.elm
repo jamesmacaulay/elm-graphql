@@ -141,6 +141,11 @@ queryVariableWithDefault name variableType defaultValue =
     Structure.QueryVariable name variableType (Just defaultValue)
 
 
+queryDirective : String -> List ( String, Arg.Value ) -> Structure.QueryOption
+queryDirective =
+    Structure.QueryDirective
+
+
 applyQueryOption : Structure.QueryOption -> Structure.Query -> Structure.Query
 applyQueryOption queryOption query =
     case queryOption of
@@ -154,6 +159,16 @@ applyQueryOption queryOption query =
                         ++ [ { name = name
                              , variableType = variableType
                              , defaultValue = defaultValue
+                             }
+                           ]
+            }
+
+        Structure.QueryDirective name args ->
+            { query
+                | directives =
+                    query.directives
+                        ++ [ { name = name
+                             , args = args
                              }
                            ]
             }
@@ -309,12 +324,21 @@ query : List Structure.QueryOption -> Spec a -> Query a
 query queryOptions =
     (mapNode << Structure.mapBuilder)
         (\spec ->
-            (case spec of
-                Structure.ObjectSpec selections ->
-                    { name = Nothing, variables = [], spec = spec }
+            let
+                objectSpec =
+                    case spec of
+                        Structure.ObjectSpec selections ->
+                            spec
 
-                _ ->
-                    { name = Nothing, variables = [], spec = Structure.ObjectSpec [] }
-            )
-                |> flip (List.foldl applyQueryOption) queryOptions
+                        _ ->
+                            Structure.ObjectSpec []
+
+                queryStructure =
+                    { name = Nothing
+                    , variables = []
+                    , directives = []
+                    , spec = objectSpec
+                    }
+            in
+                List.foldl applyQueryOption queryStructure queryOptions
         )

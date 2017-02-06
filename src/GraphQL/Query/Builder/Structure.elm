@@ -72,6 +72,7 @@ type alias VariableDefinition =
 type alias Query =
     { name : Maybe String
     , variables : List VariableDefinition
+    , directives : List Directive
     , spec : Spec
     }
 
@@ -79,6 +80,7 @@ type alias Query =
 type QueryOption
     = QueryName String
     | QueryVariable String String (Maybe Arg.Value)
+    | QueryDirective String (List ( String, Arg.Value ))
 
 
 getBaseSpec : Spec -> Spec
