@@ -32,7 +32,7 @@ type alias Field =
 type FieldOption
     = FieldAlias String
     | FieldArgs (List ( String, Arg.Value ))
-    | FieldDirectives (List Directive)
+    | FieldDirective String (List ( String, Arg.Value ))
 
 
 type alias Directive =

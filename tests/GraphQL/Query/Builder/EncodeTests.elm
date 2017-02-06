@@ -27,7 +27,11 @@ tests =
                 |> Q.withField "user"
                     [ Q.fieldArgs [ ( "id", Arg.variable "userId" ) ] ]
                     (Q.object (,)
-                        |> Q.withField "name" [] Q.string
+                        |> Q.withField "name"
+                            [ Q.fieldDirective "skip"
+                                [ ( "if", Arg.variable "skipName" ) ]
+                            ]
+                            Q.string
                         |> Q.withField "photos"
                             [ Q.fieldArgs [ ( "first", Arg.int 10 ) ] ]
                             (Q.list
@@ -39,13 +43,14 @@ tests =
                     )
                 |> Q.query
                     [ Q.queryName "userQuery"
-                    , Q.queryVariableWithDefault "userId" "String!" (Arg.string "123")
+                    , Q.queryVariable "userId" "String!"
+                    , Q.queryVariableWithDefault "skipName" "Boolean" Arg.true
                     ]
                 |> Q.getNode
                 |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """query userQuery($userId: String! = "123") {
+                |> Expect.equal (Ok """query userQuery($userId: String!, $skipName: Boolean = true) {
   user(id: $userId) {
-    name
+    name @skip(if: $skipName)
     photos(first: 10) {
       url
       caption

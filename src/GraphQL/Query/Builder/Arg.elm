@@ -38,6 +38,16 @@ bool =
     BooleanValue
 
 
+true : Value
+true =
+    BooleanValue True
+
+
+false : Value
+false =
+    BooleanValue False
+
+
 null : Value
 null =
     NullValue

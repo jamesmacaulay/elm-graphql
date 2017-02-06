@@ -101,6 +101,11 @@ fieldArgs =
     Structure.FieldArgs
 
 
+fieldDirective : String -> List ( String, Arg.Value ) -> Structure.FieldOption
+fieldDirective =
+    Structure.FieldDirective
+
+
 applyFieldOption : Structure.FieldOption -> Structure.Field -> Structure.Field
 applyFieldOption fieldOption field =
     case fieldOption of
@@ -110,8 +115,15 @@ applyFieldOption fieldOption field =
         Structure.FieldArgs args ->
             { field | args = field.args ++ args }
 
-        Structure.FieldDirectives directives ->
-            { field | directives = field.directives ++ directives }
+        Structure.FieldDirective name args ->
+            { field
+                | directives =
+                    field.directives
+                        ++ [ { name = name
+                             , args = args
+                             }
+                           ]
+            }
 
 
 queryName : String -> Structure.QueryOption
@@ -174,7 +186,7 @@ field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) value
             , args = []
             , directives = []
             }
-                |> flip (List.foldr applyFieldOption) fieldOptions
+                |> flip (List.foldl applyFieldOption) fieldOptions
 
         spec =
             (Structure.ObjectSpec [ Structure.FieldSelection field ])
@@ -304,5 +316,5 @@ query queryOptions =
                 _ ->
                     { name = Nothing, variables = [], spec = Structure.ObjectSpec [] }
             )
-                |> flip (List.foldr applyQueryOption) queryOptions
+                |> flip (List.foldl applyQueryOption) queryOptions
         )
