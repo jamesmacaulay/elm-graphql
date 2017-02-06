@@ -119,11 +119,32 @@ queryName =
     Structure.QueryName
 
 
+queryVariable : String -> String -> Structure.QueryOption
+queryVariable name variableType =
+    Structure.QueryVariable name variableType Nothing
+
+
+queryVariableWithDefault : String -> String -> Arg.Value -> Structure.QueryOption
+queryVariableWithDefault name variableType defaultValue =
+    Structure.QueryVariable name variableType (Just defaultValue)
+
+
 applyQueryOption : Structure.QueryOption -> Structure.Query -> Structure.Query
 applyQueryOption queryOption query =
     case queryOption of
         Structure.QueryName name ->
             { query | name = Just name }
+
+        Structure.QueryVariable name variableType defaultValue ->
+            { query
+                | variables =
+                    query.variables
+                        ++ [ { name = name
+                             , variableType = variableType
+                             , defaultValue = defaultValue
+                             }
+                           ]
+            }
 
 
 map : (a -> b) -> Spec a -> Spec b
@@ -278,10 +299,10 @@ query queryOptions =
         (\spec ->
             (case spec of
                 Structure.ObjectSpec selections ->
-                    { name = Nothing, spec = spec }
+                    { name = Nothing, variables = [], spec = spec }
 
                 _ ->
-                    { name = Nothing, spec = Structure.ObjectSpec [] }
+                    { name = Nothing, variables = [], spec = Structure.ObjectSpec [] }
             )
                 |> flip (List.foldr applyQueryOption) queryOptions
         )

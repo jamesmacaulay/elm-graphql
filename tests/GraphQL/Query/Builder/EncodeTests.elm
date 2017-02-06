@@ -17,7 +17,7 @@ tests =
                 |> Q.query []
                 |> Q.getNode
                 |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """{
+                |> Expect.equal (Ok """query {
   name
   number
 }""")
@@ -25,7 +25,7 @@ tests =
         \() ->
             Q.object identity
                 |> Q.withField "user"
-                    [ Q.fieldArgs [ ( "id", Arg.string "123" ) ] ]
+                    [ Q.fieldArgs [ ( "id", Arg.variable "userId" ) ] ]
                     (Q.object (,)
                         |> Q.withField "name" [] Q.string
                         |> Q.withField "photos"
@@ -37,11 +37,14 @@ tests =
                                 )
                             )
                     )
-                |> Q.query [ Q.queryName "userQuery" ]
+                |> Q.query
+                    [ Q.queryName "userQuery"
+                    , Q.queryVariableWithDefault "userId" "String!" (Arg.string "123")
+                    ]
                 |> Q.getNode
                 |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """query userQuery {
-  user(id: "123") {
+                |> Expect.equal (Ok """query userQuery($userId: String! = "123") {
+  user(id: $userId) {
     name
     photos(first: 10) {
       url

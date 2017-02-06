@@ -62,14 +62,23 @@ type alias InlineFragment =
     }
 
 
+type alias VariableDefinition =
+    { name : String
+    , variableType : String
+    , defaultValue : Maybe Arg.Value
+    }
+
+
 type alias Query =
     { name : Maybe String
+    , variables : List VariableDefinition
     , spec : Spec
     }
 
 
 type QueryOption
     = QueryName String
+    | QueryVariable String String (Maybe Arg.Value)
 
 
 getBaseSpec : Spec -> Spec

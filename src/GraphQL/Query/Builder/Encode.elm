@@ -157,14 +157,38 @@ encodeInlineFragment indentLevel { typeCondition, directives, spec } =
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
 
-encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
-encodeQueryBuilder (Builder errs { name, spec }) =
-    if List.isEmpty errs then
-        case name of
-            Just justName ->
-                Ok ("query " ++ justName ++ encodeSelectionSetSuffix 0 spec)
+encodeVariableDefinition : VariableDefinition -> String
+encodeVariableDefinition { name, variableType, defaultValue } =
+    let
+        defaultValueString =
+            defaultValue
+                |> Maybe.map (((++) " = ") << encodeArgValue)
+                |> Maybe.withDefault ""
+    in
+        "$" ++ name ++ ": " ++ variableType ++ defaultValueString
 
-            Nothing ->
-                Ok (encodeSelectionSet 0 spec)
+
+encodeVariableDefinitionList : List VariableDefinition -> String
+encodeVariableDefinitionList variableDefinitions =
+    if List.isEmpty variableDefinitions then
+        ""
+    else
+        "(" ++ String.join ", " (List.map encodeVariableDefinition variableDefinitions) ++ ")"
+
+
+encodeQueryBuilder : Builder Query -> Result (List BuilderError) String
+encodeQueryBuilder (Builder errs { name, variables, spec }) =
+    if List.isEmpty errs then
+        let
+            nameAndVariables =
+                Maybe.withDefault "" name ++ encodeVariableDefinitionList variables
+
+            spacer =
+                if String.isEmpty nameAndVariables then
+                    ""
+                else
+                    " "
+        in
+            Ok ("query" ++ spacer ++ nameAndVariables ++ encodeSelectionSetSuffix 0 spec)
     else
         Err errs
