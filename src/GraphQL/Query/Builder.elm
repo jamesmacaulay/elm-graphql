@@ -5,6 +5,10 @@ import GraphQL.Query.Builder.Arg as Arg
 import Json.Decode as Decode exposing (Decoder)
 
 
+type alias BuilderError =
+    Structure.BuilderError
+
+
 type alias Spec a =
     Decodable (Structure.Builder Structure.Spec) a
 

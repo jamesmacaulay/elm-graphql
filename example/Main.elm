@@ -1,9 +1,9 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, text)
-import GraphQL.Query exposing (..)
-import GraphQL.Query.Arg as Arg
-import GraphQL.Query.Encode exposing (encodeQueryBuilder)
+import GraphQL.Query.Builder exposing (..)
+import GraphQL.Query.Builder.Arg as Arg
+import GraphQL.Query.Builder.Encode exposing (encodeQueryBuilder)
 import Json.Decode
 import Json.Encode
 import Http
@@ -40,15 +40,15 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsQuery : Query FilmSummary
+starWarsQuery : Op FilmSummary
 starWarsQuery =
     extractField "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
         (object FilmSummary
-            |> withField "title" [] (maybe string)
+            |> withField "title" [] (nullable string)
             |> withField "characterConnection"
                 [ fieldArgs [ ( "first", Arg.int 3 ) ] ]
-                (extractConnectionNodes (extractField "name" [] (maybe string)))
+                (extractConnectionNodes (extractField "name" [] (nullable string)))
         )
         |> query []
 
@@ -66,7 +66,7 @@ type Msg
     = ReceiveQueryResponse (Result Error FilmSummary)
 
 
-performStarWarsQuery : Query a -> Task Error a
+performStarWarsQuery : Op a -> Task Error a
 performStarWarsQuery decodableQuery =
     case (decodableQuery |> getNode |> encodeQueryBuilder) of
         Ok query ->
