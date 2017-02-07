@@ -43,7 +43,7 @@ userQuery =
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
     in
-        query [] (extractField "user" [] user)
+        query [] (field "user" [] user)
 ```
 
 The `Op` type can represent both query and mutation operations. It lets you do two important things:

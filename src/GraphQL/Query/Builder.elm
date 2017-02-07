@@ -222,11 +222,6 @@ withField name fieldOptions decodableFieldSpec decodableParentSpec =
         |> andMap (field name fieldOptions decodableFieldSpec)
 
 
-extractField : String -> List Structure.FieldOption -> Spec a -> Spec a
-extractField =
-    field
-
-
 fragmentSpread : FragmentDefinition a -> List Structure.Directive -> Spec (Maybe a)
 fragmentSpread (Decodable (Structure.Builder fragmentErrs { name }) fragmentDecoder) directives =
     let

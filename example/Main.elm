@@ -18,7 +18,7 @@ type alias FilmSummary =
 
 extractConnectionNodes : Spec a -> Spec (List a)
 extractConnectionNodes spec =
-    (extractField "edges" [] (list (extractField "node" [] spec)))
+    (field "edges" [] (list (field "node" [] spec)))
 
 
 {-| The definition of `starWarsQuery` builds up a decodable query object that
@@ -42,13 +42,13 @@ The same decodable query value is then also used to decode the response into a
 -}
 starWarsQuery : Op FilmSummary
 starWarsQuery =
-    extractField "film"
+    field "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
         (produce FilmSummary
             |> withField "title" [] (nullable string)
             |> withField "characterConnection"
                 [ fieldArgs [ ( "first", Arg.int 3 ) ] ]
-                (extractConnectionNodes (extractField "name" [] (nullable string)))
+                (extractConnectionNodes (field "name" [] (nullable string)))
         )
         |> query []
 
