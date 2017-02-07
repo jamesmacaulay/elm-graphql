@@ -42,10 +42,10 @@ tests =
                             )
                     )
                 |> Q.query
-                    [ Q.queryName "userQuery"
-                    , Q.queryVariable "userId" "String!"
-                    , Q.queryVariableWithDefault "skipName" "Boolean" Arg.true
-                    , Q.queryDirective "someQueryDirective" [ ( "foo", Arg.string "bar" ) ]
+                    [ Q.opName "userQuery"
+                    , Q.opVariable "userId" "String!"
+                    , Q.opVariableWithDefault "skipName" "Boolean" Arg.true
+                    , Q.opDirective "someQueryDirective" [ ( "foo", Arg.string "bar" ) ]
                     ]
                 |> Q.getNode
                 |> QE.encodeQueryBuilder
@@ -56,6 +56,27 @@ tests =
       url
       caption
     }
+  }
+}""")
+    , test "encoding a mutation" <|
+        \() ->
+            Q.object identity
+                |> Q.withField "createUser"
+                    [ Q.fieldArgs
+                        [ ( "name", Arg.variable "name" ) ]
+                    ]
+                    (Q.object identity
+                        |> Q.withField "name" [] Q.string
+                    )
+                |> Q.mutation
+                    [ Q.opName "createUserMutation"
+                    , Q.opVariable "name" "String!"
+                    ]
+                |> Q.getNode
+                |> QE.encodeQueryBuilder
+                |> Expect.equal (Ok """mutation createUserMutation($name: String!) {
+  createUser(name: $name) {
+    name
   }
 }""")
     ]

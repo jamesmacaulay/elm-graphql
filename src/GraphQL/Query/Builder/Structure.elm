@@ -71,6 +71,7 @@ type alias VariableDefinition =
 
 type OpType
     = Query
+    | Mutation
 
 
 type alias Op =

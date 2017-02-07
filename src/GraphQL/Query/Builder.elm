@@ -13,7 +13,7 @@ type alias FragmentDefinition a =
     Decodable (Structure.Builder Structure.FragmentDefinition) a
 
 
-type alias Query a =
+type alias Op a =
     Decodable (Structure.Builder Structure.Op) a
 
 
@@ -126,23 +126,23 @@ applyFieldOption fieldOption field =
             }
 
 
-queryName : String -> Structure.OpOption
-queryName =
+opName : String -> Structure.OpOption
+opName =
     Structure.OpName
 
 
-queryVariable : String -> String -> Structure.OpOption
-queryVariable name variableType =
+opVariable : String -> String -> Structure.OpOption
+opVariable name variableType =
     Structure.OpVariable name variableType Nothing
 
 
-queryVariableWithDefault : String -> String -> Arg.Value -> Structure.OpOption
-queryVariableWithDefault name variableType defaultValue =
+opVariableWithDefault : String -> String -> Arg.Value -> Structure.OpOption
+opVariableWithDefault name variableType defaultValue =
     Structure.OpVariable name variableType (Just defaultValue)
 
 
-queryDirective : String -> List ( String, Arg.Value ) -> Structure.OpOption
-queryDirective =
+opDirective : String -> List ( String, Arg.Value ) -> Structure.OpOption
+opDirective =
     Structure.OpDirective
 
 
@@ -320,8 +320,8 @@ fragment name typeCondition directives =
         )
 
 
-query : List Structure.OpOption -> Spec a -> Query a
-query queryOptions =
+op : Structure.OpType -> List Structure.OpOption -> Spec a -> Op a
+op opType queryOptions =
     (mapNode << Structure.mapBuilder)
         (\spec ->
             let
@@ -334,7 +334,7 @@ query queryOptions =
                             Structure.ObjectSpec []
 
                 queryStructure =
-                    { opType = Structure.Query
+                    { opType = opType
                     , name = Nothing
                     , variables = []
                     , directives = []
@@ -343,3 +343,13 @@ query queryOptions =
             in
                 List.foldl applyQueryOption queryStructure queryOptions
         )
+
+
+query : List Structure.OpOption -> Spec a -> Op a
+query =
+    op Structure.Query
+
+
+mutation : List Structure.OpOption -> Spec a -> Op a
+mutation =
+    op Structure.Mutation
