@@ -69,18 +69,23 @@ type alias VariableDefinition =
     }
 
 
-type alias Query =
-    { name : Maybe String
+type OpType
+    = Query
+
+
+type alias Op =
+    { opType : OpType
+    , name : Maybe String
     , variables : List VariableDefinition
     , directives : List Directive
     , spec : Spec
     }
 
 
-type QueryOption
-    = QueryName String
-    | QueryVariable String String (Maybe Arg.Value)
-    | QueryDirective String (List ( String, Arg.Value ))
+type OpOption
+    = OpName String
+    | OpVariable String String (Maybe Arg.Value)
+    | OpDirective String (List ( String, Arg.Value ))
 
 
 getBaseSpec : Spec -> Spec

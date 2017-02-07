@@ -14,7 +14,7 @@ type alias FragmentDefinition a =
 
 
 type alias Query a =
-    Decodable (Structure.Builder Structure.Query) a
+    Decodable (Structure.Builder Structure.Op) a
 
 
 type Decodable node result
@@ -126,33 +126,33 @@ applyFieldOption fieldOption field =
             }
 
 
-queryName : String -> Structure.QueryOption
+queryName : String -> Structure.OpOption
 queryName =
-    Structure.QueryName
+    Structure.OpName
 
 
-queryVariable : String -> String -> Structure.QueryOption
+queryVariable : String -> String -> Structure.OpOption
 queryVariable name variableType =
-    Structure.QueryVariable name variableType Nothing
+    Structure.OpVariable name variableType Nothing
 
 
-queryVariableWithDefault : String -> String -> Arg.Value -> Structure.QueryOption
+queryVariableWithDefault : String -> String -> Arg.Value -> Structure.OpOption
 queryVariableWithDefault name variableType defaultValue =
-    Structure.QueryVariable name variableType (Just defaultValue)
+    Structure.OpVariable name variableType (Just defaultValue)
 
 
-queryDirective : String -> List ( String, Arg.Value ) -> Structure.QueryOption
+queryDirective : String -> List ( String, Arg.Value ) -> Structure.OpOption
 queryDirective =
-    Structure.QueryDirective
+    Structure.OpDirective
 
 
-applyQueryOption : Structure.QueryOption -> Structure.Query -> Structure.Query
+applyQueryOption : Structure.OpOption -> Structure.Op -> Structure.Op
 applyQueryOption queryOption query =
     case queryOption of
-        Structure.QueryName name ->
+        Structure.OpName name ->
             { query | name = Just name }
 
-        Structure.QueryVariable name variableType defaultValue ->
+        Structure.OpVariable name variableType defaultValue ->
             { query
                 | variables =
                     query.variables
@@ -163,7 +163,7 @@ applyQueryOption queryOption query =
                            ]
             }
 
-        Structure.QueryDirective name args ->
+        Structure.OpDirective name args ->
             { query
                 | directives =
                     query.directives
@@ -320,7 +320,7 @@ fragment name typeCondition directives =
         )
 
 
-query : List Structure.QueryOption -> Spec a -> Query a
+query : List Structure.OpOption -> Spec a -> Query a
 query queryOptions =
     (mapNode << Structure.mapBuilder)
         (\spec ->
@@ -334,7 +334,8 @@ query queryOptions =
                             Structure.ObjectSpec []
 
                 queryStructure =
-                    { name = Nothing
+                    { opType = Structure.Query
+                    , name = Nothing
                     , variables = []
                     , directives = []
                     , spec = objectSpec
