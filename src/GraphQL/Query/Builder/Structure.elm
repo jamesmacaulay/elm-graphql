@@ -89,6 +89,11 @@ type OpOption
     | OpDirective String (List ( String, Arg.Value ))
 
 
+responseKey : Field -> String
+responseKey field =
+    Maybe.withDefault field.name field.fieldAlias
+
+
 getBaseSpec : Spec -> Spec
 getBaseSpec spec =
     case spec of

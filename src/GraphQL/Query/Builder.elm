@@ -207,7 +207,7 @@ field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) value
             Structure.ObjectSpec [ Structure.FieldSelection field ]
 
         decoder =
-            Decode.field name valueDecoder
+            Decode.field (Structure.responseKey field) valueDecoder
     in
         Decodable (Structure.Builder valueErrs spec) decoder
 

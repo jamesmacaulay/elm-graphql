@@ -123,10 +123,10 @@ tests =
         )
     , testDecoder "(object (,) |> withField ...)"
         (Q.object (,)
-            |> Q.withField "name" [] Q.string
+            |> Q.withField "name" [ Q.fieldAlias "nameAlias" ] Q.string
             |> Q.withField "number" [] Q.int
         )
-        "{\"name\":\"Alice\",\"number\":33}"
+        "{\"nameAlias\":\"Alice\",\"number\":33}"
         ( "Alice", 33 )
     , testSpecSuccess "(construct (,) |> andMap ...)"
         (Q.construct (,)
