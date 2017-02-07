@@ -1,4 +1,37 @@
-module GraphQL.Query.Builder exposing (..)
+module GraphQL.Query.Builder
+    exposing
+        ( BuilderError
+        , Spec
+        , FragmentDefinition
+        , Op
+        , getStructure
+        , getDecoder
+        , string
+        , int
+        , float
+        , bool
+        , list
+        , nullable
+        , produce
+        , fieldAlias
+        , fieldArgs
+        , fieldDirective
+        , opName
+        , opVariable
+        , opVariableWithDefault
+        , opDirective
+        , map
+        , andMap
+        , field
+        , withField
+        , fragmentSpread
+        , withFragment
+        , inlineFragment
+        , withInlineFragment
+        , fragment
+        , query
+        , mutation
+        )
 
 import GraphQL.Query.Builder.Structure as Structure
 import GraphQL.Query.Builder.Arg as Arg
@@ -30,8 +63,8 @@ mapDecodable f g (Decodable node decoder) =
     Decodable (f node) (g decoder)
 
 
-mapNode : (a -> b) -> Decodable a result -> Decodable b result
-mapNode f =
+mapStructure : (a -> b) -> Decodable a result -> Decodable b result
+mapStructure f =
     mapDecodable f identity
 
 
@@ -40,8 +73,8 @@ mapDecoder =
     mapDecodable identity
 
 
-getNode : Decodable node result -> node
-getNode (Decodable node _) =
+getStructure : Decodable node result -> node
+getStructure (Decodable node _) =
     node
 
 
@@ -92,85 +125,37 @@ produce x =
 
 fieldAlias : String -> Structure.FieldOption
 fieldAlias =
-    Structure.FieldAlias
+    Structure.fieldAlias
 
 
 fieldArgs : List ( String, Arg.Value ) -> Structure.FieldOption
 fieldArgs =
-    Structure.FieldArgs
+    Structure.fieldArgs
 
 
 fieldDirective : String -> List ( String, Arg.Value ) -> Structure.FieldOption
 fieldDirective =
-    Structure.FieldDirective
-
-
-applyFieldOption : Structure.FieldOption -> Structure.Field -> Structure.Field
-applyFieldOption fieldOption field =
-    case fieldOption of
-        Structure.FieldAlias name ->
-            { field | fieldAlias = Just name }
-
-        Structure.FieldArgs args ->
-            { field | args = field.args ++ args }
-
-        Structure.FieldDirective name args ->
-            { field
-                | directives =
-                    field.directives
-                        ++ [ { name = name
-                             , args = args
-                             }
-                           ]
-            }
+    Structure.fieldDirective
 
 
 opName : String -> Structure.OpOption
 opName =
-    Structure.OpName
+    Structure.opName
 
 
 opVariable : String -> String -> Structure.OpOption
-opVariable name variableType =
-    Structure.OpVariable name variableType Nothing
+opVariable =
+    Structure.opVariable
 
 
 opVariableWithDefault : String -> String -> Arg.Value -> Structure.OpOption
-opVariableWithDefault name variableType defaultValue =
-    Structure.OpVariable name variableType (Just defaultValue)
+opVariableWithDefault =
+    Structure.opVariableWithDefault
 
 
 opDirective : String -> List ( String, Arg.Value ) -> Structure.OpOption
 opDirective =
-    Structure.OpDirective
-
-
-applyQueryOption : Structure.OpOption -> Structure.Op -> Structure.Op
-applyQueryOption queryOption query =
-    case queryOption of
-        Structure.OpName name ->
-            { query | name = Just name }
-
-        Structure.OpVariable name variableType defaultValue ->
-            { query
-                | variables =
-                    query.variables
-                        ++ [ { name = name
-                             , variableType = variableType
-                             , defaultValue = defaultValue
-                             }
-                           ]
-            }
-
-        Structure.OpDirective name args ->
-            { query
-                | directives =
-                    query.directives
-                        ++ [ { name = name
-                             , args = args
-                             }
-                           ]
-            }
+    Structure.opDirective
 
 
 map : (a -> b) -> Spec a -> Spec b
@@ -194,13 +179,7 @@ field : String -> List Structure.FieldOption -> Spec a -> Spec a
 field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) valueDecoder) =
     let
         field =
-            { name = name
-            , spec = valueSpec
-            , fieldAlias = Nothing
-            , args = []
-            , directives = []
-            }
-                |> flip (List.foldl applyFieldOption) fieldOptions
+            Structure.field name fieldOptions valueSpec
 
         spec =
             Structure.ObjectSpec [ Structure.FieldSelection field ]
@@ -292,7 +271,7 @@ withInlineFragment typeCondition directives decodableFragmentSpec decodableParen
 
 fragment : String -> String -> List Structure.Directive -> Spec a -> FragmentDefinition a
 fragment name typeCondition directives =
-    mapNode
+    mapStructure
         (\(Structure.Builder specErrs spec) ->
             let
                 fragmentDefinition =
@@ -314,36 +293,15 @@ fragment name typeCondition directives =
         )
 
 
-op : Structure.OpType -> List Structure.OpOption -> Spec a -> Op a
-op opType queryOptions =
-    (mapNode << Structure.mapBuilder)
-        (\spec ->
-            let
-                objectSpec =
-                    case spec of
-                        Structure.ObjectSpec selections ->
-                            spec
-
-                        _ ->
-                            Structure.ObjectSpec []
-
-                queryStructure =
-                    { opType = opType
-                    , name = Nothing
-                    , variables = []
-                    , directives = []
-                    , spec = objectSpec
-                    }
-            in
-                List.foldl applyQueryOption queryStructure queryOptions
-        )
-
-
 query : List Structure.OpOption -> Spec a -> Op a
-query =
-    op Structure.Query
+query opOptions =
+    Structure.query opOptions
+        |> Structure.mapBuilder
+        |> mapStructure
 
 
 mutation : List Structure.OpOption -> Spec a -> Op a
-mutation =
-    op Structure.Mutation
+mutation opOptions =
+    Structure.mutation opOptions
+        |> Structure.mapBuilder
+        |> mapStructure

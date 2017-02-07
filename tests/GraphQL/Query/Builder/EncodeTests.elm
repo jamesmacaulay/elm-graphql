@@ -15,7 +15,7 @@ tests =
                 |> Q.withField "name" [] Q.string
                 |> Q.withField "number" [] Q.int
                 |> Q.query []
-                |> Q.getNode
+                |> Q.getStructure
                 |> QE.encodeQueryBuilder
                 |> Expect.equal (Ok """query {
   name
@@ -47,7 +47,7 @@ tests =
                     , Q.opVariableWithDefault "skipName" "Boolean" Arg.true
                     , Q.opDirective "someQueryDirective" [ ( "foo", Arg.string "bar" ) ]
                     ]
-                |> Q.getNode
+                |> Q.getStructure
                 |> QE.encodeQueryBuilder
                 |> Expect.equal (Ok """query userQuery($userId: String!, $skipName: Boolean = true) @someQueryDirective(foo: "bar") {
   user(id: $userId) {
@@ -72,7 +72,7 @@ tests =
                     [ Q.opName "createUserMutation"
                     , Q.opVariable "name" "String!"
                     ]
-                |> Q.getNode
+                |> Q.getStructure
                 |> QE.encodeQueryBuilder
                 |> Expect.equal (Ok """mutation createUserMutation($name: String!) {
   createUser(name: $name) {

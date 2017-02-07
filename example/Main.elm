@@ -68,7 +68,7 @@ type Msg
 
 performStarWarsQuery : Op a -> Task Error a
 performStarWarsQuery decodableQuery =
-    case (decodableQuery |> getNode |> encodeQueryBuilder) of
+    case (decodableQuery |> getStructure |> encodeQueryBuilder) of
         Ok query ->
             let
                 body =

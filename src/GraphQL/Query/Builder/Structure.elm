@@ -1,4 +1,43 @@
-module GraphQL.Query.Builder.Structure exposing (..)
+module GraphQL.Query.Builder.Structure
+    exposing
+        ( Selection(..)
+        , Spec(..)
+        , Field
+        , FieldOption
+        , Directive
+        , FragmentDefinition
+        , FragmentSpread
+        , InlineFragment
+        , VariableDefinition
+        , OpType(..)
+        , Op
+        , OpOption
+        , BuilderError(..)
+        , Builder(..)
+        , responseKey
+        , getBaseSpec
+        , mapBuilder
+        , specBuilderIntersection
+        , string
+        , int
+        , float
+        , bool
+        , list
+        , nullable
+        , any
+        , object
+        , fieldAlias
+        , fieldArgs
+        , fieldDirective
+        , field
+        , opName
+        , opVariable
+        , opVariableWithDefault
+        , opDirective
+        , op
+        , query
+        , mutation
+        )
 
 import GraphQL.Query.Builder.Arg as Arg
 
@@ -89,6 +128,15 @@ type OpOption
     | OpDirective String (List ( String, Arg.Value ))
 
 
+type BuilderError
+    = InvalidIntersection Spec Spec
+    | InvalidFragment Spec
+
+
+type Builder a
+    = Builder (List BuilderError) a
+
+
 responseKey : Field -> String
 responseKey field =
     Maybe.withDefault field.name field.fieldAlias
@@ -105,15 +153,6 @@ getBaseSpec spec =
 
         _ ->
             spec
-
-
-type BuilderError
-    = InvalidIntersection Spec Spec
-    | InvalidFragment Spec
-
-
-type Builder a
-    = Builder (List BuilderError) a
 
 
 mapBuilder : (a -> b) -> Builder a -> Builder b
@@ -210,3 +249,132 @@ any =
 object : Builder Spec
 object =
     Builder [] (ObjectSpec [])
+
+
+fieldAlias : String -> FieldOption
+fieldAlias =
+    FieldAlias
+
+
+fieldArgs : List ( String, Arg.Value ) -> FieldOption
+fieldArgs =
+    FieldArgs
+
+
+fieldDirective : String -> List ( String, Arg.Value ) -> FieldOption
+fieldDirective =
+    FieldDirective
+
+
+applyFieldOption : FieldOption -> Field -> Field
+applyFieldOption fieldOption field =
+    case fieldOption of
+        FieldAlias name ->
+            { field | fieldAlias = Just name }
+
+        FieldArgs args ->
+            { field | args = field.args ++ args }
+
+        FieldDirective name args ->
+            { field
+                | directives =
+                    field.directives
+                        ++ [ { name = name
+                             , args = args
+                             }
+                           ]
+            }
+
+
+field : String -> List FieldOption -> Spec -> Field
+field name fieldOptions spec =
+    let
+        init =
+            { name = name
+            , spec = spec
+            , fieldAlias = Nothing
+            , args = []
+            , directives = []
+            }
+    in
+        List.foldl applyFieldOption init fieldOptions
+
+
+opName : String -> OpOption
+opName =
+    OpName
+
+
+opVariable : String -> String -> OpOption
+opVariable name variableType =
+    OpVariable name variableType Nothing
+
+
+opVariableWithDefault : String -> String -> Arg.Value -> OpOption
+opVariableWithDefault name variableType defaultValue =
+    OpVariable name variableType (Just defaultValue)
+
+
+opDirective : String -> List ( String, Arg.Value ) -> OpOption
+opDirective =
+    OpDirective
+
+
+applyOpOption : OpOption -> Op -> Op
+applyOpOption queryOption query =
+    case queryOption of
+        OpName name ->
+            { query | name = Just name }
+
+        OpVariable name variableType defaultValue ->
+            { query
+                | variables =
+                    query.variables
+                        ++ [ { name = name
+                             , variableType = variableType
+                             , defaultValue = defaultValue
+                             }
+                           ]
+            }
+
+        OpDirective name args ->
+            { query
+                | directives =
+                    query.directives
+                        ++ [ { name = name
+                             , args = args
+                             }
+                           ]
+            }
+
+
+op : OpType -> List OpOption -> Spec -> Op
+op opType opOptions spec =
+    let
+        objectSpec =
+            case spec of
+                ObjectSpec _ ->
+                    spec
+
+                _ ->
+                    ObjectSpec []
+
+        init =
+            { opType = opType
+            , name = Nothing
+            , variables = []
+            , directives = []
+            , spec = objectSpec
+            }
+    in
+        List.foldl applyOpOption init opOptions
+
+
+query : List OpOption -> Spec -> Op
+query =
+    op Query
+
+
+mutation : List OpOption -> Spec -> Op
+mutation =
+    op Mutation

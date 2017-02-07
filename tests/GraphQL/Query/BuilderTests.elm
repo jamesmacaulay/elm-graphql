@@ -17,7 +17,7 @@ testSpecSuccess expr decodableSpec expectedSpec =
     test ("Spec success for " ++ expr) <|
         \() ->
             decodableSpec
-                |> Q.getNode
+                |> Q.getStructure
                 |> Expect.equal (S.Builder [] expectedSpec)
 
 
@@ -31,7 +31,7 @@ testSpecErrors expr decodableSpec expectedErrors =
         \() ->
             let
                 (S.Builder errors _) =
-                    Q.getNode decodableSpec
+                    Q.getStructure decodableSpec
             in
                 Expect.equal expectedErrors errors
 
