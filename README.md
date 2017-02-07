@@ -46,7 +46,7 @@ userQuery =
         query [] (extractField "user" [] user)
 ```
 
-The `Op` type can represent both query and mutation operations, it lets you do two important things:
+The `Op` type can represent both query and mutation operations. It lets you do two important things:
   
   * generate GraphQL request documents to send to the server, and
   * decode JSON responses from the server.
