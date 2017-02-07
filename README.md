@@ -34,12 +34,12 @@ userQuery : Op User
 userQuery =
     let
         photo =
-            object Photo
+            produce Photo
                 |> withField "url" [] string
                 |> withField "caption" [] string
 
         user =
-            object User
+            produce User
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
     in

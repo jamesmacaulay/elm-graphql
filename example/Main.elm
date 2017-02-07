@@ -44,7 +44,7 @@ starWarsQuery : Op FilmSummary
 starWarsQuery =
     extractField "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
-        (object FilmSummary
+        (produce FilmSummary
             |> withField "title" [] (nullable string)
             |> withField "characterConnection"
                 [ fieldArgs [ ( "first", Arg.int 3 ) ] ]

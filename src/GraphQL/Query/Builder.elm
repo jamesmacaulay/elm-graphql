@@ -85,14 +85,9 @@ nullable =
     mapDecodable Structure.nullable nullableDecoder
 
 
-construct : (a -> b) -> Spec (a -> b)
-construct constructor =
-    Decodable Structure.any (Decode.succeed constructor)
-
-
-object : (a -> b) -> Spec (a -> b)
-object constructor =
-    Decodable Structure.object (Decode.succeed constructor)
+produce : a -> Spec a
+produce x =
+    Decodable Structure.any (Decode.succeed x)
 
 
 fieldAlias : String -> Structure.FieldOption

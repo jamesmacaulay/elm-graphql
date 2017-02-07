@@ -11,7 +11,7 @@ tests : List Test.Test
 tests =
     [ test "encoding a very simple query" <|
         \() ->
-            Q.object (,)
+            Q.produce (,)
                 |> Q.withField "name" [] Q.string
                 |> Q.withField "number" [] Q.int
                 |> Q.query []
@@ -23,10 +23,10 @@ tests =
 }""")
     , test "encoding a more complex query" <|
         \() ->
-            Q.object identity
+            Q.produce identity
                 |> Q.withField "user"
                     [ Q.fieldArgs [ ( "id", Arg.variable "userId" ) ] ]
-                    (Q.object (,)
+                    (Q.produce (,)
                         |> Q.withField "name"
                             [ Q.fieldDirective "skip"
                                 [ ( "if", Arg.variable "skipName" ) ]
@@ -35,7 +35,7 @@ tests =
                         |> Q.withField "photos"
                             [ Q.fieldArgs [ ( "first", Arg.int 10 ) ] ]
                             (Q.list
-                                (Q.object (,)
+                                (Q.produce (,)
                                     |> Q.withField "url" [] Q.string
                                     |> Q.withField "caption" [] Q.string
                                 )
@@ -60,12 +60,12 @@ tests =
 }""")
     , test "encoding a mutation" <|
         \() ->
-            Q.object identity
+            Q.produce identity
                 |> Q.withField "createUser"
                     [ Q.fieldArgs
                         [ ( "name", Arg.variable "name" ) ]
                     ]
-                    (Q.object identity
+                    (Q.produce identity
                         |> Q.withField "name" [] Q.string
                     )
                 |> Q.mutation

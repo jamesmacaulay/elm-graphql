@@ -99,8 +99,8 @@ tests =
         (Q.list Q.int)
         "[1, 2, 3]"
         [ 1, 2, 3 ]
-    , testSpecSuccess "(object (,) |> withField ...)"
-        (Q.object (,)
+    , testSpecSuccess "(produce (,) |> withField ...)"
+        (Q.produce (,)
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
         )
@@ -121,28 +121,28 @@ tests =
                 }
             ]
         )
-    , testDecoder "(object (,) |> withField ...)"
-        (Q.object (,)
+    , testDecoder "(produce (,) |> withField ...)"
+        (Q.produce (,)
             |> Q.withField "name" [ Q.fieldAlias "nameAlias" ] Q.string
             |> Q.withField "number" [] Q.int
         )
         "{\"nameAlias\":\"Alice\",\"number\":33}"
         ( "Alice", 33 )
-    , testSpecSuccess "(construct (,) |> andMap ...)"
-        (Q.construct (,)
+    , testSpecSuccess "(produce (,) |> andMap ...)"
+        (Q.produce (,)
             |> Q.andMap (Q.map String.reverse Q.string)
             |> Q.andMap (Q.map String.length Q.string)
         )
         S.StringSpec
-    , testDecoder "(construct (,) |> andMap ...)"
-        (Q.construct (,)
+    , testDecoder "(produce (,) |> andMap ...)"
+        (Q.produce (,)
             |> Q.andMap (Q.map String.reverse Q.string)
             |> Q.andMap (Q.map String.length Q.string)
         )
         "\"foo\""
         ( "oof", 3 )
-    , testSpecErrors "(object (,,) ... trying to intersect with int and bool"
-        (Q.object (,,)
+    , testSpecErrors "(produce (,,) ... trying to intersect with int and bool"
+        (Q.produce (,,)
             |> Q.withField "name" [] Q.string
             |> Q.andMap Q.int
             |> Q.andMap Q.bool
