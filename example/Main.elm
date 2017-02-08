@@ -4,6 +4,7 @@ import Html exposing (Html, div, text)
 import GraphQL.Query.Builder exposing (..)
 import GraphQL.Query.Builder.Arg as Arg
 import GraphQL.Query.Builder.Encode exposing (encodeQueryBuilder)
+import GraphQL.Client.Http as GraphQLClient
 import Json.Decode
 import Json.Encode
 import Http
@@ -16,9 +17,9 @@ type alias FilmSummary =
     }
 
 
-extractConnectionNodes : Spec a -> Spec (List a)
-extractConnectionNodes spec =
-    (field "edges" [] (list (field "node" [] spec)))
+connectionNodes : Spec a -> Spec (List a)
+connectionNodes spec =
+    field "edges" [] (list (field "node" [] spec))
 
 
 {-| The definition of `starWarsQuery` builds up a decodable query object that
@@ -48,45 +49,22 @@ starWarsQuery =
             |> withField "title" [] (nullable string)
             |> withField "characterConnection"
                 [ fieldArgs [ ( "first", Arg.int 3 ) ] ]
-                (extractConnectionNodes (field "name" [] (nullable string)))
+                (connectionNodes (field "name" [] (nullable string)))
         )
         |> query []
 
 
-type Error
-    = HttpError Http.Error
-    | InvalidQueryError (List BuilderError)
-
-
 type alias Model =
-    Maybe (Result Error FilmSummary)
+    Maybe (Result GraphQLClient.Error FilmSummary)
 
 
 type Msg
-    = ReceiveQueryResponse (Result Error FilmSummary)
+    = ReceiveQueryResponse (Result GraphQLClient.Error FilmSummary)
 
 
-performStarWarsQuery : Op a -> Task Error a
-performStarWarsQuery decodableQuery =
-    case (decodableQuery |> getStructure |> encodeQueryBuilder) of
-        Ok query ->
-            let
-                body =
-                    query
-                        |> Json.Encode.string
-                        |> (\q -> Json.Encode.object [ ( "query", q ) ])
-                        |> Http.jsonBody
-
-                decoder =
-                    getDecoder decodableQuery |> Json.Decode.at [ "data" ]
-
-                request =
-                    Http.post "/" body decoder
-            in
-                Http.toTask request |> Task.mapError HttpError
-
-        Err errs ->
-            Task.fail (InvalidQueryError errs)
+performStarWarsQuery : Op a -> Task GraphQLClient.Error a
+performStarWarsQuery op =
+    GraphQLClient.sendOp "/" op Nothing
 
 
 main : Program Never Model Msg
