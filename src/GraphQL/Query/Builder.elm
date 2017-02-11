@@ -292,12 +292,12 @@ fragment name typeCondition directives spec =
 
 
 query : List Structure.QueryOption -> Spec a -> Query a
-query opOptions spec =
+query queryOptions spec =
     spec
-        |> mapStructure (Structure.query opOptions)
+        |> mapStructure (Structure.query queryOptions)
 
 
 mutation : List Structure.MutationOption -> Spec a -> Mutation a
-mutation opOptions spec =
+mutation mutationOptions spec =
     spec
-        |> mapStructure (Structure.mutation opOptions)
+        |> mapStructure (Structure.mutation mutationOptions)
