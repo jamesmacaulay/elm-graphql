@@ -37,7 +37,7 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsQuery : Op FilmSummary
+starWarsQuery : Query FilmSummary
 starWarsQuery =
     field "film"
         [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
@@ -58,9 +58,9 @@ type Msg
     = ReceiveQueryResponse (Result Http.Error FilmSummary)
 
 
-queryRequest : Op a -> Http.Request a
+queryRequest : Query a -> Http.Request a
 queryRequest query =
-    GraphQLClient.opRequest "/" query Nothing
+    GraphQLClient.queryRequest "/" query Nothing
 
 
 sendStarWarsQuery : Cmd Msg

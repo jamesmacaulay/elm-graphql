@@ -9,9 +9,11 @@ module GraphQL.Query.Builder.Structure
         , FragmentSpread
         , InlineFragment
         , VariableDefinition
-        , OpType(..)
-        , Op
-        , OpOption
+        , Query(..)
+        , QueryOption
+        , Mutation(..)
+        , MutationOption
+        , OperationConfig
         , responseKey
         , getBaseSpec
         , join
@@ -27,13 +29,16 @@ module GraphQL.Query.Builder.Structure
         , fieldArgs
         , fieldDirective
         , field
-        , opName
-        , opVariable
-        , opVariableWithDefault
-        , opDirective
-        , op
         , query
+        , queryName
+        , queryVariable
+        , queryVariableWithDefault
+        , queryDirective
         , mutation
+        , mutationName
+        , mutationVariable
+        , mutationVariableWithDefault
+        , mutationDirective
         )
 
 import GraphQL.Query.Builder.Arg as Arg
@@ -105,24 +110,34 @@ type alias VariableDefinition =
     }
 
 
-type OpType
-    = Query
-    | Mutation
+type Query
+    = Query OperationConfig
 
 
-type alias Op =
-    { opType : OpType
-    , name : Maybe String
+type Mutation
+    = Mutation OperationConfig
+
+
+type alias OperationConfig =
+    { name : Maybe String
     , variables : List VariableDefinition
     , directives : List Directive
     , spec : Spec
     }
 
 
-type OpOption
-    = OpName String
-    | OpVariable String String (Maybe Arg.Value)
-    | OpDirective String (List ( String, Arg.Value ))
+type OperationOption
+    = OperationName String
+    | OperationVariable String String (Maybe Arg.Value)
+    | OperationDirective String (List ( String, Arg.Value ))
+
+
+type QueryOption
+    = QueryOption OperationOption
+
+
+type MutationOption
+    = MutationOption OperationOption
 
 
 responseKey : Field -> String
@@ -256,36 +271,56 @@ field name fieldOptions spec =
         List.foldl applyFieldOption init fieldOptions
 
 
-opName : String -> OpOption
-opName =
-    OpName
+queryName : String -> QueryOption
+queryName =
+    OperationName >> QueryOption
 
 
-opVariable : String -> String -> OpOption
-opVariable name variableType =
-    OpVariable name variableType Nothing
+mutationName : String -> MutationOption
+mutationName =
+    OperationName >> MutationOption
 
 
-opVariableWithDefault : String -> String -> Arg.Value -> OpOption
-opVariableWithDefault name variableType defaultValue =
-    OpVariable name variableType (Just defaultValue)
+queryVariable : String -> String -> QueryOption
+queryVariable name variableType =
+    QueryOption (OperationVariable name variableType Nothing)
 
 
-opDirective : String -> List ( String, Arg.Value ) -> OpOption
-opDirective =
-    OpDirective
+mutationVariable : String -> String -> MutationOption
+mutationVariable name variableType =
+    MutationOption (OperationVariable name variableType Nothing)
 
 
-applyOpOption : OpOption -> Op -> Op
-applyOpOption queryOption query =
-    case queryOption of
-        OpName name ->
-            { query | name = Just name }
+queryVariableWithDefault : String -> String -> Arg.Value -> QueryOption
+queryVariableWithDefault name variableType defaultValue =
+    QueryOption (OperationVariable name variableType (Just defaultValue))
 
-        OpVariable name variableType defaultValue ->
-            { query
+
+mutationVariableWithDefault : String -> String -> Arg.Value -> MutationOption
+mutationVariableWithDefault name variableType defaultValue =
+    MutationOption (OperationVariable name variableType (Just defaultValue))
+
+
+queryDirective : String -> List ( String, Arg.Value ) -> QueryOption
+queryDirective name args =
+    QueryOption (OperationDirective name args)
+
+
+mutationDirective : String -> List ( String, Arg.Value ) -> MutationOption
+mutationDirective name args =
+    MutationOption (OperationDirective name args)
+
+
+applyOperationOption : OperationOption -> OperationConfig -> OperationConfig
+applyOperationOption option config =
+    case option of
+        OperationName name ->
+            { config | name = Just name }
+
+        OperationVariable name variableType defaultValue ->
+            { config
                 | variables =
-                    query.variables
+                    config.variables
                         ++ [ { name = name
                              , variableType = variableType
                              , defaultValue = defaultValue
@@ -293,10 +328,10 @@ applyOpOption queryOption query =
                            ]
             }
 
-        OpDirective name args ->
-            { query
+        OperationDirective name args ->
+            { config
                 | directives =
-                    query.directives
+                    config.directives
                         ++ [ { name = name
                              , args = args
                              }
@@ -304,8 +339,13 @@ applyOpOption queryOption query =
             }
 
 
-op : OpType -> List OpOption -> Spec -> Op
-op opType opOptions spec =
+operation :
+    (OperationConfig -> operationType)
+    -> (optionType -> OperationOption)
+    -> List optionType
+    -> Spec
+    -> operationType
+operation operationConstructor optionDeconstructor options spec =
     let
         objectSpec =
             case spec of
@@ -316,21 +356,22 @@ op opType opOptions spec =
                     ObjectSpec []
 
         init =
-            { opType = opType
-            , name = Nothing
+            { name = Nothing
             , variables = []
             , directives = []
             , spec = objectSpec
             }
     in
-        List.foldl applyOpOption init opOptions
+        options
+            |> List.foldl (optionDeconstructor >> applyOperationOption) init
+            |> operationConstructor
 
 
-query : List OpOption -> Spec -> Op
+query : List QueryOption -> Spec -> Query
 query =
-    op Query
+    operation Query (\(QueryOption option) -> option)
 
 
-mutation : List OpOption -> Spec -> Op
+mutation : List MutationOption -> Spec -> Mutation
 mutation =
-    op Mutation
+    operation Mutation (\(MutationOption option) -> option)

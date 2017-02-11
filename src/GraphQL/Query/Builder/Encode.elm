@@ -1,4 +1,8 @@
-module GraphQL.Query.Builder.Encode exposing (..)
+module GraphQL.Query.Builder.Encode
+    exposing
+        ( encodeQuery
+        , encodeMutation
+        )
 
 import GraphQL.Query.Builder.Structure exposing (..)
 import GraphQL.Query.Builder.Arg as Arg
@@ -176,12 +180,9 @@ encodeVariableDefinitionList variableDefinitions =
         "(" ++ String.join ", " (List.map encodeVariableDefinition variableDefinitions) ++ ")"
 
 
-encodeOp : Op -> String
-encodeOp { opType, name, variables, directives, spec } =
+encodeOperation : String -> OperationConfig -> String
+encodeOperation opType { name, variables, directives, spec } =
     let
-        opTypeString =
-            opType |> toString |> String.toLower
-
         nameAndVariables =
             Maybe.withDefault "" name ++ encodeVariableDefinitionList variables
 
@@ -194,8 +195,18 @@ encodeOp { opType, name, variables, directives, spec } =
         directivesString =
             encodeDirectivesSuffix directives
     in
-        opTypeString
+        opType
             ++ spacer
             ++ nameAndVariables
             ++ directivesString
             ++ encodeSelectionSetSuffix 0 spec
+
+
+encodeQuery : Query -> String
+encodeQuery (Query operationConfig) =
+    encodeOperation "query" operationConfig
+
+
+encodeMutation : Mutation -> String
+encodeMutation (Mutation operationConfig) =
+    encodeOperation "mutation" operationConfig

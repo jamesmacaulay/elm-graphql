@@ -2,7 +2,8 @@ module GraphQL.Query.Builder
     exposing
         ( Spec
         , FragmentDefinition
-        , Op
+        , Query
+        , Mutation
         , getStructure
         , getDecoder
         , string
@@ -15,10 +16,14 @@ module GraphQL.Query.Builder
         , fieldAlias
         , fieldArgs
         , fieldDirective
-        , opName
-        , opVariable
-        , opVariableWithDefault
-        , opDirective
+        , queryName
+        , queryVariable
+        , queryVariableWithDefault
+        , queryDirective
+        , mutationName
+        , mutationVariable
+        , mutationVariableWithDefault
+        , mutationDirective
         , map
         , andMap
         , field
@@ -45,8 +50,12 @@ type alias FragmentDefinition a =
     Decodable Structure.FragmentDefinition a
 
 
-type alias Op a =
-    Decodable Structure.Op a
+type alias Query a =
+    Decodable Structure.Query a
+
+
+type alias Mutation a =
+    Decodable Structure.Mutation a
 
 
 type Decodable node result
@@ -133,24 +142,44 @@ fieldDirective =
     Structure.fieldDirective
 
 
-opName : String -> Structure.OpOption
-opName =
-    Structure.opName
+queryName : String -> Structure.QueryOption
+queryName =
+    Structure.queryName
 
 
-opVariable : String -> String -> Structure.OpOption
-opVariable =
-    Structure.opVariable
+queryVariable : String -> String -> Structure.QueryOption
+queryVariable =
+    Structure.queryVariable
 
 
-opVariableWithDefault : String -> String -> Arg.Value -> Structure.OpOption
-opVariableWithDefault =
-    Structure.opVariableWithDefault
+queryVariableWithDefault : String -> String -> Arg.Value -> Structure.QueryOption
+queryVariableWithDefault =
+    Structure.queryVariableWithDefault
 
 
-opDirective : String -> List ( String, Arg.Value ) -> Structure.OpOption
-opDirective =
-    Structure.opDirective
+queryDirective : String -> List ( String, Arg.Value ) -> Structure.QueryOption
+queryDirective =
+    Structure.queryDirective
+
+
+mutationName : String -> Structure.MutationOption
+mutationName =
+    Structure.mutationName
+
+
+mutationVariable : String -> String -> Structure.MutationOption
+mutationVariable =
+    Structure.mutationVariable
+
+
+mutationVariableWithDefault : String -> String -> Arg.Value -> Structure.MutationOption
+mutationVariableWithDefault =
+    Structure.mutationVariableWithDefault
+
+
+mutationDirective : String -> List ( String, Arg.Value ) -> Structure.MutationOption
+mutationDirective =
+    Structure.mutationDirective
 
 
 map : (a -> b) -> Spec a -> Spec b
@@ -262,13 +291,13 @@ fragment name typeCondition directives spec =
         |> mapStructure (Structure.FragmentDefinition name typeCondition directives)
 
 
-query : List Structure.OpOption -> Spec a -> Op a
+query : List Structure.QueryOption -> Spec a -> Query a
 query opOptions spec =
     spec
         |> mapStructure (Structure.query opOptions)
 
 
-mutation : List Structure.OpOption -> Spec a -> Op a
+mutation : List Structure.MutationOption -> Spec a -> Mutation a
 mutation opOptions spec =
     spec
         |> mapStructure (Structure.mutation opOptions)

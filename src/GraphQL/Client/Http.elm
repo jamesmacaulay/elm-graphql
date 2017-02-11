@@ -1,6 +1,7 @@
 module GraphQL.Client.Http
     exposing
-        ( opRequest
+        ( queryRequest
+        , mutationRequest
         , rawRequest
         )
 
@@ -11,16 +12,30 @@ import Json.Encode
 import Http
 
 
-opRequest : String -> QueryBuilder.Op a -> Maybe Json.Encode.Value -> Http.Request a
-opRequest url op =
+queryRequest : String -> QueryBuilder.Query a -> Maybe Json.Encode.Value -> Http.Request a
+queryRequest url query =
     let
         documentString =
-            op
+            query
                 |> QueryBuilder.getStructure
-                |> QueryEncode.encodeOp
+                |> QueryEncode.encodeQuery
 
         decoder =
-            QueryBuilder.getDecoder op
+            QueryBuilder.getDecoder query
+    in
+        rawRequest url documentString decoder
+
+
+mutationRequest : String -> QueryBuilder.Mutation a -> Maybe Json.Encode.Value -> Http.Request a
+mutationRequest url mutation =
+    let
+        documentString =
+            mutation
+                |> QueryBuilder.getStructure
+                |> QueryEncode.encodeMutation
+
+        decoder =
+            QueryBuilder.getDecoder mutation
     in
         rawRequest url documentString decoder
 
