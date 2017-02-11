@@ -18,22 +18,7 @@ testSpecSuccess expr decodableSpec expectedSpec =
         \() ->
             decodableSpec
                 |> Q.getStructure
-                |> Expect.equal (S.Builder [] expectedSpec)
-
-
-testSpecErrors :
-    String
-    -> Q.Spec a
-    -> List S.BuilderError
-    -> Test.Test
-testSpecErrors expr decodableSpec expectedErrors =
-    test ("Spec errors for " ++ expr) <|
-        \() ->
-            let
-                (S.Builder errors _) =
-                    Q.getStructure decodableSpec
-            in
-                Expect.equal expectedErrors errors
+                |> Expect.equal expectedSpec
 
 
 testDecoder :
@@ -141,39 +126,6 @@ tests =
         )
         "\"foo\""
         ( "oof", 3 )
-    , testSpecErrors "(produce (,,) ... trying to intersect with int and bool"
-        (Q.produce (,,)
-            |> Q.withField "name" [] Q.string
-            |> Q.andMap Q.int
-            |> Q.andMap Q.bool
-        )
-        [ S.InvalidIntersection
-            (S.ObjectSpec
-                ([ S.FieldSelection
-                    { name = "name"
-                    , spec = S.StringSpec
-                    , fieldAlias = Nothing
-                    , args = []
-                    , directives = []
-                    }
-                 ]
-                )
-            )
-            S.IntSpec
-        , S.InvalidIntersection
-            (S.ObjectSpec
-                ([ S.FieldSelection
-                    { name = "name"
-                    , spec = S.StringSpec
-                    , fieldAlias = Nothing
-                    , args = []
-                    , directives = []
-                    }
-                 ]
-                )
-            )
-            S.BooleanSpec
-        ]
     ]
 
 

@@ -16,8 +16,8 @@ tests =
                 |> Q.withField "number" [] Q.int
                 |> Q.query []
                 |> Q.getStructure
-                |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """query {
+                |> QE.encodeOp
+                |> Expect.equal ("""query {
   name
   number
 }""")
@@ -48,8 +48,8 @@ tests =
                     , Q.opDirective "someQueryDirective" [ ( "foo", Arg.string "bar" ) ]
                     ]
                 |> Q.getStructure
-                |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """query userQuery($userId: String!, $skipName: Boolean = true) @someQueryDirective(foo: "bar") {
+                |> QE.encodeOp
+                |> Expect.equal ("""query userQuery($userId: String!, $skipName: Boolean = true) @someQueryDirective(foo: "bar") {
   user(id: $userId) {
     name @skip(if: $skipName)
     photos(first: 10) {
@@ -73,8 +73,8 @@ tests =
                     , Q.opVariable "name" "String!"
                     ]
                 |> Q.getStructure
-                |> QE.encodeQueryBuilder
-                |> Expect.equal (Ok """mutation createUserMutation($name: String!) {
+                |> QE.encodeOp
+                |> Expect.equal ("""mutation createUserMutation($name: String!) {
   createUser(name: $name) {
     name
   }

@@ -176,25 +176,26 @@ encodeVariableDefinitionList variableDefinitions =
         "(" ++ String.join ", " (List.map encodeVariableDefinition variableDefinitions) ++ ")"
 
 
-encodeQueryBuilder : Builder Op -> Result (List BuilderError) String
-encodeQueryBuilder (Builder errs { opType, name, variables, directives, spec }) =
-    if List.isEmpty errs then
-        let
-            opTypeString =
-                opType |> toString |> String.toLower
+encodeOp : Op -> String
+encodeOp { opType, name, variables, directives, spec } =
+    let
+        opTypeString =
+            opType |> toString |> String.toLower
 
-            nameAndVariables =
-                Maybe.withDefault "" name ++ encodeVariableDefinitionList variables
+        nameAndVariables =
+            Maybe.withDefault "" name ++ encodeVariableDefinitionList variables
 
-            spacer =
-                if String.isEmpty nameAndVariables then
-                    ""
-                else
-                    " "
+        spacer =
+            if String.isEmpty nameAndVariables then
+                ""
+            else
+                " "
 
-            directivesString =
-                encodeDirectivesSuffix directives
-        in
-            Ok (opTypeString ++ spacer ++ nameAndVariables ++ directivesString ++ encodeSelectionSetSuffix 0 spec)
-    else
-        Err errs
+        directivesString =
+            encodeDirectivesSuffix directives
+    in
+        opTypeString
+            ++ spacer
+            ++ nameAndVariables
+            ++ directivesString
+            ++ encodeSelectionSetSuffix 0 spec

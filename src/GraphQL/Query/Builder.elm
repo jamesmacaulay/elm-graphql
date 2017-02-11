@@ -1,7 +1,6 @@
 module GraphQL.Query.Builder
     exposing
-        ( BuilderError
-        , Spec
+        ( Spec
         , FragmentDefinition
         , Op
         , getStructure
@@ -38,20 +37,16 @@ import GraphQL.Query.Builder.Arg as Arg
 import Json.Decode as Decode exposing (Decoder)
 
 
-type alias BuilderError =
-    Structure.BuilderError
-
-
 type alias Spec a =
-    Decodable (Structure.Builder Structure.Spec) a
+    Decodable Structure.Spec a
 
 
 type alias FragmentDefinition a =
-    Decodable (Structure.Builder Structure.FragmentDefinition) a
+    Decodable Structure.FragmentDefinition a
 
 
 type alias Op a =
-    Decodable (Structure.Builder Structure.Op) a
+    Decodable Structure.Op a
 
 
 type Decodable node result
@@ -166,17 +161,17 @@ map f =
 andMap : Spec a -> Spec (a -> b) -> Spec b
 andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
     let
-        specBuilder =
-            Structure.specBuilderIntersection bigSpec littleSpec
+        spec =
+            Structure.join bigSpec littleSpec
 
         decoder =
             Decode.map2 (<|) bigDecoder littleDecoder
     in
-        Decodable specBuilder decoder
+        Decodable spec decoder
 
 
 field : String -> List Structure.FieldOption -> Spec a -> Spec a
-field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) valueDecoder) =
+field name fieldOptions (Decodable valueSpec valueDecoder) =
     let
         field =
             Structure.field name fieldOptions valueSpec
@@ -187,7 +182,7 @@ field name fieldOptions (Decodable (Structure.Builder valueErrs valueSpec) value
         decoder =
             Decode.field (Structure.responseKey field) valueDecoder
     in
-        Decodable (Structure.Builder valueErrs spec) decoder
+        Decodable spec decoder
 
 
 withField :
@@ -202,7 +197,7 @@ withField name fieldOptions decodableFieldSpec decodableParentSpec =
 
 
 fragmentSpread : FragmentDefinition a -> List Structure.Directive -> Spec (Maybe a)
-fragmentSpread (Decodable (Structure.Builder fragmentErrs { name }) fragmentDecoder) directives =
+fragmentSpread (Decodable { name } fragmentDecoder) directives =
     let
         fragmentSpread =
             { name = name
@@ -215,7 +210,7 @@ fragmentSpread (Decodable (Structure.Builder fragmentErrs { name }) fragmentDeco
         decoder =
             Decode.maybe fragmentDecoder
     in
-        Decodable (Structure.Builder fragmentErrs spec) decoder
+        Decodable spec decoder
 
 
 withFragment :
@@ -233,29 +228,21 @@ inlineFragment :
     -> List Structure.Directive
     -> Spec a
     -> Spec (Maybe a)
-inlineFragment typeCondition directives (Decodable (Structure.Builder specErrs spec) fragmentDecoder) =
+inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder) =
     let
-        inlineFragment_ =
+        inlineFragment =
             { typeCondition = typeCondition
             , directives = directives
-            , spec = spec
+            , spec = fragmentSpec
             }
 
-        spec_ =
-            Structure.ObjectSpec [ Structure.InlineFragmentSelection inlineFragment_ ]
+        spec =
+            Structure.ObjectSpec [ Structure.InlineFragmentSelection inlineFragment ]
 
         decoder =
             Decode.maybe fragmentDecoder
-
-        inlineFragmentErrs =
-            case spec_ of
-                Structure.ObjectSpec _ ->
-                    []
-
-                _ ->
-                    [ Structure.InvalidFragment spec_ ]
     in
-        Decodable (Structure.Builder (specErrs ++ inlineFragmentErrs) spec_) decoder
+        Decodable spec decoder
 
 
 withInlineFragment :
@@ -270,38 +257,18 @@ withInlineFragment typeCondition directives decodableFragmentSpec decodableParen
 
 
 fragment : String -> String -> List Structure.Directive -> Spec a -> FragmentDefinition a
-fragment name typeCondition directives =
-    mapStructure
-        (\(Structure.Builder specErrs spec) ->
-            let
-                fragmentDefinition =
-                    { name = name
-                    , typeCondition = typeCondition
-                    , directives = directives
-                    , spec = spec
-                    }
-
-                fragmentErrs =
-                    case spec of
-                        Structure.ObjectSpec _ ->
-                            []
-
-                        _ ->
-                            [ Structure.InvalidFragment spec ]
-            in
-                Structure.Builder (specErrs ++ fragmentErrs) fragmentDefinition
-        )
+fragment name typeCondition directives spec =
+    spec
+        |> mapStructure (Structure.FragmentDefinition name typeCondition directives)
 
 
 query : List Structure.OpOption -> Spec a -> Op a
-query opOptions =
-    Structure.query opOptions
-        |> Structure.mapBuilder
-        |> mapStructure
+query opOptions spec =
+    spec
+        |> mapStructure (Structure.query opOptions)
 
 
 mutation : List Structure.OpOption -> Spec a -> Op a
-mutation opOptions =
-    Structure.mutation opOptions
-        |> Structure.mapBuilder
-        |> mapStructure
+mutation opOptions spec =
+    spec
+        |> mapStructure (Structure.mutation opOptions)

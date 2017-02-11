@@ -12,12 +12,9 @@ module GraphQL.Query.Builder.Structure
         , OpType(..)
         , Op
         , OpOption
-        , BuilderError(..)
-        , Builder(..)
         , responseKey
         , getBaseSpec
-        , mapBuilder
-        , specBuilderIntersection
+        , join
         , string
         , int
         , float
@@ -83,8 +80,8 @@ type alias Directive =
 type alias FragmentDefinition =
     { name : String
     , typeCondition : String
-    , spec : Spec
     , directives : List Directive
+    , spec : Spec
     }
 
 
@@ -128,15 +125,6 @@ type OpOption
     | OpDirective String (List ( String, Arg.Value ))
 
 
-type BuilderError
-    = InvalidIntersection Spec Spec
-    | InvalidFragment Spec
-
-
-type Builder a
-    = Builder (List BuilderError) a
-
-
 responseKey : Field -> String
 responseKey field =
     Maybe.withDefault field.name field.fieldAlias
@@ -155,100 +143,68 @@ getBaseSpec spec =
             spec
 
 
-mapBuilder : (a -> b) -> Builder a -> Builder b
-mapBuilder f (Builder errs spec) =
-    Builder errs (f spec)
-
-
 appendSelections : List Selection -> List Selection -> List Selection
 appendSelections a b =
     a ++ b
 
 
-specIntersection : Spec -> Spec -> Result BuilderError Spec
-specIntersection a b =
+join : Spec -> Spec -> Spec
+join a b =
     case ( a, b ) of
         ( AnySpec, _ ) ->
-            Ok b
+            b
 
-        ( _, AnySpec ) ->
-            Ok a
+        ( ObjectSpec selectionsA, ObjectSpec selectionsB ) ->
+            ObjectSpec (appendSelections selectionsA selectionsB)
 
-        ( ObjectSpec ssa, ObjectSpec ssb ) ->
-            Ok (ObjectSpec (appendSelections ssa ssb))
+        ( ListSpec wrappedA, ListSpec wrappedB ) ->
+            ListSpec (join wrappedA wrappedB)
 
-        ( ListSpec innerA, ListSpec innerB ) ->
-            specIntersection innerA innerB
-                |> Result.map ListSpec
-
-        ( NullableSpec innerA, NullableSpec innerB ) ->
-            specIntersection innerA innerB
-                |> Result.map NullableSpec
-
-        ( IntSpec, IntSpec ) ->
-            Ok IntSpec
-
-        ( FloatSpec, FloatSpec ) ->
-            Ok FloatSpec
-
-        ( StringSpec, StringSpec ) ->
-            Ok StringSpec
-
-        ( BooleanSpec, BooleanSpec ) ->
-            Ok BooleanSpec
+        ( NullableSpec wrappedA, NullableSpec wrappedB ) ->
+            NullableSpec (join wrappedA wrappedB)
 
         _ ->
-            Err (InvalidIntersection a b)
+            a
 
 
-specBuilderIntersection : Builder Spec -> Builder Spec -> Builder Spec
-specBuilderIntersection (Builder errsA specA) (Builder errsB specB) =
-    case specIntersection specA specB of
-        Ok spec ->
-            Builder (errsA ++ errsB) spec
-
-        Err builderError ->
-            Builder (errsA ++ errsB ++ [ builderError ]) specA
-
-
-string : Builder Spec
+string : Spec
 string =
-    Builder [] StringSpec
+    StringSpec
 
 
-int : Builder Spec
+int : Spec
 int =
-    Builder [] IntSpec
+    IntSpec
 
 
-float : Builder Spec
+float : Spec
 float =
-    Builder [] FloatSpec
+    FloatSpec
 
 
-bool : Builder Spec
+bool : Spec
 bool =
-    Builder [] BooleanSpec
+    BooleanSpec
 
 
-list : Builder Spec -> Builder Spec
+list : Spec -> Spec
 list =
-    mapBuilder ListSpec
+    ListSpec
 
 
-nullable : Builder Spec -> Builder Spec
+nullable : Spec -> Spec
 nullable =
-    mapBuilder NullableSpec
+    NullableSpec
 
 
-any : Builder Spec
+any : Spec
 any =
-    Builder [] AnySpec
+    AnySpec
 
 
-object : Builder Spec
+object : Spec
 object =
-    Builder [] (ObjectSpec [])
+    ObjectSpec []
 
 
 fieldAlias : String -> FieldOption

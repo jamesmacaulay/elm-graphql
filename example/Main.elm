@@ -3,12 +3,8 @@ module Main exposing (..)
 import Html exposing (Html, div, text)
 import GraphQL.Query.Builder exposing (..)
 import GraphQL.Query.Builder.Arg as Arg
-import GraphQL.Query.Builder.Encode exposing (encodeQueryBuilder)
 import GraphQL.Client.Http as GraphQLClient
-import Json.Decode
-import Json.Encode
 import Http
-import Task exposing (Task)
 
 
 type alias FilmSummary =
@@ -55,16 +51,22 @@ starWarsQuery =
 
 
 type alias Model =
-    Maybe (Result GraphQLClient.Error FilmSummary)
+    Maybe (Result Http.Error FilmSummary)
 
 
 type Msg
-    = ReceiveQueryResponse (Result GraphQLClient.Error FilmSummary)
+    = ReceiveQueryResponse (Result Http.Error FilmSummary)
 
 
-performStarWarsQuery : Op a -> Task GraphQLClient.Error a
-performStarWarsQuery op =
-    GraphQLClient.sendOp "/" op Nothing
+queryRequest : Op a -> Http.Request a
+queryRequest query =
+    GraphQLClient.opRequest "/" query Nothing
+
+
+sendStarWarsQuery : Cmd Msg
+sendStarWarsQuery =
+    queryRequest starWarsQuery
+        |> Http.send ReceiveQueryResponse
 
 
 main : Program Never Model Msg
@@ -79,9 +81,7 @@ main =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Nothing
-    , performStarWarsQuery starWarsQuery |> Task.attempt ReceiveQueryResponse
-    )
+    ( Nothing, sendStarWarsQuery )
 
 
 view : Model -> Html Msg

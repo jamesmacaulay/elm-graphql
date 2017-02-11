@@ -1,8 +1,7 @@
 module GraphQL.Client.Http
     exposing
-        ( Error
-        , sendOp
-        , sendRaw
+        ( opRequest
+        , rawRequest
         )
 
 import GraphQL.Query.Builder as QueryBuilder
@@ -10,27 +9,24 @@ import GraphQL.Query.Builder.Encode as QueryEncode
 import Json.Decode
 import Json.Encode
 import Http
-import Task exposing (Task)
 
 
-type Error
-    = HttpError Http.Error
-    | InvalidQueryError (List QueryBuilder.BuilderError)
+opRequest : String -> QueryBuilder.Op a -> Maybe Json.Encode.Value -> Http.Request a
+opRequest url op =
+    let
+        documentString =
+            op
+                |> QueryBuilder.getStructure
+                |> QueryEncode.encodeOp
+
+        decoder =
+            QueryBuilder.getDecoder op
+    in
+        rawRequest url documentString decoder
 
 
-sendOp : String -> QueryBuilder.Op a -> Maybe Json.Encode.Value -> Task Error a
-sendOp url op =
-    case op |> QueryBuilder.getStructure |> QueryEncode.encodeQueryBuilder of
-        Err errs ->
-            always (Task.fail (InvalidQueryError errs))
-
-        Ok documentString ->
-            sendRaw url documentString (QueryBuilder.getDecoder op)
-                >> Task.mapError HttpError
-
-
-sendRaw : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Http.Error a
-sendRaw url documentString decoder variableValues =
+rawRequest : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Http.Request a
+rawRequest url documentString decoder variableValues =
     let
         documentValue =
             Json.Encode.string documentString
@@ -48,8 +44,5 @@ sendRaw url documentString decoder variableValues =
 
         responseDecoder =
             Json.Decode.at [ "data" ] decoder
-
-        request =
-            Http.post url body responseDecoder
     in
-        Http.toTask request
+        Http.post url body responseDecoder
