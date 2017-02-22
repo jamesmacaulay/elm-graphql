@@ -10,7 +10,7 @@ import String
 
 testSpecSuccess :
     String
-    -> Q.Spec a
+    -> Q.Spec a b
     -> S.Spec
     -> Test.Test
 testSpecSuccess expr decodableSpec expectedSpec =
@@ -18,14 +18,15 @@ testSpecSuccess expr decodableSpec expectedSpec =
         \() ->
             decodableSpec
                 |> Q.getStructure
+                |> S.getSpecFromStructure
                 |> Expect.equal expectedSpec
 
 
 testDecoder :
     String
-    -> Q.Spec a
+    -> Q.Spec a b
     -> String
-    -> a
+    -> b
     -> Test.Test
 testDecoder expr decodableSpec testJSON expectedResult =
     test ("Decoder for " ++ expr) <|

@@ -2,6 +2,14 @@ module GraphQL.Query.Builder.Structure
     exposing
         ( Selection(..)
         , Spec(..)
+        , Structure(..)
+        , IntTypedSpec(..)
+        , StringTypedSpec(..)
+        , FloatTypedSpec(..)
+        , BooleanTypedSpec(..)
+        , ListTypedSpec(..)
+        , NullableTypedSpec(..)
+        , ObjectTypedSpec(..)
         , Field
         , FieldOption
         , Directive
@@ -16,6 +24,7 @@ module GraphQL.Query.Builder.Structure
         , OperationConfig
         , responseKey
         , getBaseSpec
+        , getSpecFromStructure
         , join
         , string
         , int
@@ -25,6 +34,9 @@ module GraphQL.Query.Builder.Structure
         , nullable
         , any
         , object
+        , objectFromField
+        , objectFromFragmentSpread
+        , objectFromInlineFragment
         , fieldAlias
         , fieldArgs
         , fieldDirective
@@ -50,15 +62,52 @@ type Selection
     | InlineFragmentSelection InlineFragment
 
 
+type alias SelectionSet =
+    List Selection
+
+
 type Spec
     = AnySpec
     | IntSpec
     | FloatSpec
     | StringSpec
     | BooleanSpec
-    | ObjectSpec (List Selection)
+    | ObjectSpec SelectionSet
     | ListSpec Spec
     | NullableSpec Spec
+
+
+type IntTypedSpec
+    = IntTypedSpec
+
+
+type FloatTypedSpec
+    = FloatTypedSpec
+
+
+type StringTypedSpec
+    = StringTypedSpec
+
+
+type BooleanTypedSpec
+    = BooleanTypedSpec
+
+
+type ListTypedSpec a
+    = ListTypedSpec (Structure a)
+
+
+type NullableTypedSpec a
+    = NullableTypedSpec (Structure a)
+
+
+type ObjectTypedSpec
+    = ObjectTypedSpec SelectionSet
+
+
+type Structure a
+    = Structure a (Structure a -> Structure a -> Structure a) Spec
+    | AnyStructure
 
 
 type alias Field =
@@ -86,7 +135,7 @@ type alias FragmentDefinition =
     { name : String
     , typeCondition : String
     , directives : List Directive
-    , spec : Spec
+    , spec : Structure ObjectTypedSpec
     }
 
 
@@ -99,7 +148,7 @@ type alias FragmentSpread =
 type alias InlineFragment =
     { typeCondition : Maybe String
     , directives : List Directive
-    , spec : Spec
+    , spec : Structure ObjectTypedSpec
     }
 
 
@@ -122,7 +171,7 @@ type alias OperationConfig =
     { name : Maybe String
     , variables : List VariableDefinition
     , directives : List Directive
-    , spec : Spec
+    , spec : Structure ObjectTypedSpec
     }
 
 
@@ -138,6 +187,16 @@ type QueryOption
 
 type MutationOption
     = MutationOption OperationOption
+
+
+getSpecFromStructure : Structure a -> Spec
+getSpecFromStructure structure =
+    case structure of
+        Structure _ _ spec ->
+            spec
+
+        AnyStructure ->
+            AnySpec
 
 
 responseKey : Field -> String
@@ -163,63 +222,139 @@ appendSelections a b =
     a ++ b
 
 
-join : Spec -> Spec -> Spec
-join a b =
+objectJoin : Structure ObjectTypedSpec -> Structure ObjectTypedSpec -> Structure ObjectTypedSpec
+objectJoin a b =
     case ( a, b ) of
-        ( AnySpec, _ ) ->
+        ( _, AnyStructure ) ->
+            a
+
+        ( AnyStructure, _ ) ->
             b
 
-        ( ObjectSpec selectionsA, ObjectSpec selectionsB ) ->
-            ObjectSpec (appendSelections selectionsA selectionsB)
+        ( Structure (ObjectTypedSpec selectionsA) _ _, Structure (ObjectTypedSpec selectionsB) _ _ ) ->
+            let
+                selections =
+                    appendSelections selectionsA selectionsB
+            in
+                Structure (ObjectTypedSpec selections) objectJoin (ObjectSpec selections)
 
-        ( ListSpec wrappedA, ListSpec wrappedB ) ->
-            ListSpec (join wrappedA wrappedB)
 
-        ( NullableSpec wrappedA, NullableSpec wrappedB ) ->
-            NullableSpec (join wrappedA wrappedB)
+listJoin : Structure (ListTypedSpec a) -> Structure (ListTypedSpec a) -> Structure (ListTypedSpec a)
+listJoin a b =
+    case ( a, b ) of
+        ( _, AnyStructure ) ->
+            a
+
+        ( AnyStructure, _ ) ->
+            b
+
+        ( Structure (ListTypedSpec wrappedStructureA) _ _, Structure (ListTypedSpec wrappedStructureB) _ _ ) ->
+            let
+                wrappedStructure =
+                    join wrappedStructureA wrappedStructureB
+            in
+                Structure (ListTypedSpec wrappedStructure) listJoin (ListSpec (getSpecFromStructure wrappedStructure))
+
+
+nullableJoin : Structure (NullableTypedSpec a) -> Structure (NullableTypedSpec a) -> Structure (NullableTypedSpec a)
+nullableJoin a b =
+    case ( a, b ) of
+        ( _, AnyStructure ) ->
+            a
+
+        ( AnyStructure, _ ) ->
+            b
+
+        ( Structure (NullableTypedSpec wrappedStructureA) _ _, Structure (NullableTypedSpec wrappedStructureB) _ _ ) ->
+            let
+                wrappedStructure =
+                    join wrappedStructureA wrappedStructureB
+            in
+                Structure (NullableTypedSpec wrappedStructure) nullableJoin (NullableSpec (getSpecFromStructure wrappedStructure))
+
+
+primitiveJoin : Structure a -> Structure a -> Structure a
+primitiveJoin a b =
+    case ( a, b ) of
+        ( AnyStructure, _ ) ->
+            b
 
         _ ->
             a
 
 
-string : Spec
+join : Structure a -> Structure a -> Structure a
+join a b =
+    case ( a, b ) of
+        ( AnyStructure, _ ) ->
+            b
+
+        ( Structure _ joinFn _, _ ) ->
+            joinFn a b
+
+
+string : Structure StringTypedSpec
 string =
-    StringSpec
+    Structure StringTypedSpec primitiveJoin StringSpec
 
 
-int : Spec
+int : Structure IntTypedSpec
 int =
-    IntSpec
+    Structure IntTypedSpec primitiveJoin IntSpec
 
 
-float : Spec
+float : Structure FloatTypedSpec
 float =
-    FloatSpec
+    Structure FloatTypedSpec primitiveJoin FloatSpec
 
 
-bool : Spec
+bool : Structure BooleanTypedSpec
 bool =
-    BooleanSpec
+    Structure BooleanTypedSpec primitiveJoin BooleanSpec
 
 
-list : Spec -> Spec
-list =
-    ListSpec
+list : Structure a -> Structure (ListTypedSpec a)
+list structure =
+    Structure (ListTypedSpec structure) listJoin (ListSpec (getSpecFromStructure structure))
 
 
-nullable : Spec -> Spec
-nullable =
-    NullableSpec
+nullable : Structure a -> Structure (NullableTypedSpec a)
+nullable structure =
+    Structure (NullableTypedSpec structure) nullableJoin (NullableSpec (getSpecFromStructure structure))
 
 
-any : Spec
+any : Structure a
 any =
-    AnySpec
+    AnyStructure
 
 
-object : Spec
+object : Structure ObjectTypedSpec
 object =
-    ObjectSpec []
+    Structure (ObjectTypedSpec []) objectJoin (ObjectSpec [])
+
+
+objectFromSelection : Selection -> Structure ObjectTypedSpec
+objectFromSelection selection =
+    let
+        selections =
+            [ selection ]
+    in
+        Structure (ObjectTypedSpec selections) objectJoin (ObjectSpec selections)
+
+
+objectFromField : Field -> Structure ObjectTypedSpec
+objectFromField field =
+    objectFromSelection (FieldSelection field)
+
+
+objectFromFragmentSpread : FragmentSpread -> Structure ObjectTypedSpec
+objectFromFragmentSpread fragmentSpread =
+    objectFromSelection (FragmentSpreadSelection fragmentSpread)
+
+
+objectFromInlineFragment : InlineFragment -> Structure ObjectTypedSpec
+objectFromInlineFragment inlineFragment =
+    objectFromSelection (InlineFragmentSelection inlineFragment)
 
 
 fieldAlias : String -> FieldOption
@@ -257,12 +392,12 @@ applyFieldOption fieldOption field =
             }
 
 
-field : String -> List FieldOption -> Spec -> Field
-field name fieldOptions spec =
+field : String -> List FieldOption -> Structure a -> Field
+field name fieldOptions structure =
     let
         init =
             { name = name
-            , spec = spec
+            , spec = getSpecFromStructure structure
             , fieldAlias = Nothing
             , args = []
             , directives = []
@@ -343,23 +478,15 @@ operation :
     (OperationConfig -> operationType)
     -> (optionType -> OperationOption)
     -> List optionType
-    -> Spec
+    -> Structure ObjectTypedSpec
     -> operationType
 operation operationConstructor optionDeconstructor options spec =
     let
-        objectSpec =
-            case spec of
-                ObjectSpec _ ->
-                    spec
-
-                _ ->
-                    ObjectSpec []
-
         init =
             { name = Nothing
             , variables = []
             , directives = []
-            , spec = objectSpec
+            , spec = spec
             }
     in
         options
@@ -367,11 +494,11 @@ operation operationConstructor optionDeconstructor options spec =
             |> operationConstructor
 
 
-query : List QueryOption -> Spec -> Query
+query : List QueryOption -> Structure ObjectTypedSpec -> Query
 query =
     operation Query (\(QueryOption option) -> option)
 
 
-mutation : List MutationOption -> Spec -> Mutation
+mutation : List MutationOption -> Structure ObjectTypedSpec -> Mutation
 mutation =
     operation Mutation (\(MutationOption option) -> option)

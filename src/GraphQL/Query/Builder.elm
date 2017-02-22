@@ -42,8 +42,8 @@ import GraphQL.Query.Builder.Arg as Arg
 import Json.Decode as Decode exposing (Decoder)
 
 
-type alias Spec a =
-    Decodable Structure.Spec a
+type alias Spec a b =
+    Decodable (Structure.Structure a) b
 
 
 type alias FragmentDefinition a =
@@ -87,27 +87,27 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-string : Spec String
+string : Spec Structure.StringTypedSpec String
 string =
     Decodable Structure.string Decode.string
 
 
-int : Spec Int
+int : Spec Structure.IntTypedSpec Int
 int =
     Decodable Structure.int Decode.int
 
 
-float : Spec Float
+float : Spec Structure.FloatTypedSpec Float
 float =
     Decodable Structure.float Decode.float
 
 
-bool : Spec Bool
+bool : Spec Structure.BooleanTypedSpec Bool
 bool =
     Decodable Structure.bool Decode.bool
 
 
-list : Spec a -> Spec (List a)
+list : Spec a b -> Spec (Structure.ListTypedSpec a) (List b)
 list =
     mapDecodable Structure.list Decode.list
 
@@ -117,12 +117,12 @@ nullableDecoder decoder =
     Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
 
 
-nullable : Spec a -> Spec (Maybe a)
+nullable : Spec a b -> Spec (Structure.NullableTypedSpec a) (Maybe b)
 nullable =
     mapDecodable Structure.nullable nullableDecoder
 
 
-produce : a -> Spec a
+produce : b -> Spec a b
 produce x =
     Decodable Structure.any (Decode.succeed x)
 
@@ -182,12 +182,12 @@ mutationDirective =
     Structure.mutationDirective
 
 
-map : (a -> b) -> Spec a -> Spec b
+map : (a -> b) -> Spec c a -> Spec c b
 map f =
     mapDecoder (Decode.map f)
 
 
-andMap : Spec a -> Spec (a -> b) -> Spec b
+andMap : Spec a b -> Spec a (b -> c) -> Spec a c
 andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
     let
         spec =
@@ -199,14 +199,14 @@ andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
         Decodable spec decoder
 
 
-field : String -> List Structure.FieldOption -> Spec a -> Spec a
+field : String -> List Structure.FieldOption -> Spec a b -> Spec Structure.ObjectTypedSpec b
 field name fieldOptions (Decodable valueSpec valueDecoder) =
     let
         field =
             Structure.field name fieldOptions valueSpec
 
         spec =
-            Structure.ObjectSpec [ Structure.FieldSelection field ]
+            Structure.objectFromField field
 
         decoder =
             Decode.field (Structure.responseKey field) valueDecoder
@@ -217,15 +217,18 @@ field name fieldOptions (Decodable valueSpec valueDecoder) =
 withField :
     String
     -> List Structure.FieldOption
-    -> Spec a
-    -> Spec (a -> b)
-    -> Spec b
+    -> Spec a b
+    -> Spec Structure.ObjectTypedSpec (b -> c)
+    -> Spec Structure.ObjectTypedSpec c
 withField name fieldOptions decodableFieldSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (field name fieldOptions decodableFieldSpec)
 
 
-fragmentSpread : FragmentDefinition a -> List Structure.Directive -> Spec (Maybe a)
+fragmentSpread :
+    FragmentDefinition a
+    -> List Structure.Directive
+    -> Spec Structure.ObjectTypedSpec (Maybe a)
 fragmentSpread (Decodable { name } fragmentDecoder) directives =
     let
         fragmentSpread =
@@ -234,7 +237,7 @@ fragmentSpread (Decodable { name } fragmentDecoder) directives =
             }
 
         spec =
-            Structure.ObjectSpec [ Structure.FragmentSpreadSelection fragmentSpread ]
+            Structure.objectFromFragmentSpread fragmentSpread
 
         decoder =
             Decode.maybe fragmentDecoder
@@ -245,8 +248,8 @@ fragmentSpread (Decodable { name } fragmentDecoder) directives =
 withFragment :
     FragmentDefinition a
     -> List Structure.Directive
-    -> Spec (Maybe a -> b)
-    -> Spec b
+    -> Spec Structure.ObjectTypedSpec (Maybe a -> b)
+    -> Spec Structure.ObjectTypedSpec b
 withFragment decodableFragmentDefinition directives decodableParentSpec =
     decodableParentSpec
         |> andMap (fragmentSpread decodableFragmentDefinition directives)
@@ -255,8 +258,8 @@ withFragment decodableFragmentDefinition directives decodableParentSpec =
 inlineFragment :
     Maybe String
     -> List Structure.Directive
-    -> Spec a
-    -> Spec (Maybe a)
+    -> Spec Structure.ObjectTypedSpec a
+    -> Spec Structure.ObjectTypedSpec (Maybe a)
 inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder) =
     let
         inlineFragment =
@@ -266,7 +269,7 @@ inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder)
             }
 
         spec =
-            Structure.ObjectSpec [ Structure.InlineFragmentSelection inlineFragment ]
+            Structure.objectFromInlineFragment inlineFragment
 
         decoder =
             Decode.maybe fragmentDecoder
@@ -277,27 +280,27 @@ inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder)
 withInlineFragment :
     Maybe String
     -> List Structure.Directive
-    -> Spec a
-    -> Spec (Maybe a -> b)
-    -> Spec b
+    -> Spec Structure.ObjectTypedSpec a
+    -> Spec Structure.ObjectTypedSpec (Maybe a -> b)
+    -> Spec Structure.ObjectTypedSpec b
 withInlineFragment typeCondition directives decodableFragmentSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (inlineFragment typeCondition directives decodableFragmentSpec)
 
 
-fragment : String -> String -> List Structure.Directive -> Spec a -> FragmentDefinition a
+fragment : String -> String -> List Structure.Directive -> Spec Structure.ObjectTypedSpec a -> FragmentDefinition a
 fragment name typeCondition directives spec =
     spec
         |> mapStructure (Structure.FragmentDefinition name typeCondition directives)
 
 
-query : List Structure.QueryOption -> Spec a -> Query a
+query : List Structure.QueryOption -> Spec Structure.ObjectTypedSpec a -> Query a
 query queryOptions spec =
     spec
         |> mapStructure (Structure.query queryOptions)
 
 
-mutation : List Structure.MutationOption -> Spec a -> Mutation a
+mutation : List Structure.MutationOption -> Spec Structure.ObjectTypedSpec a -> Mutation a
 mutation mutationOptions spec =
     spec
         |> mapStructure (Structure.mutation mutationOptions)

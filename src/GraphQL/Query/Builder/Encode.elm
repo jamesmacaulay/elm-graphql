@@ -156,7 +156,7 @@ encodeInlineFragment indentLevel { typeCondition, directives, spec } =
             encodeDirectivesSuffix directives
 
         selectionSetString =
-            encodeSelectionSetSuffix indentLevel spec
+            encodeSelectionSetSuffix indentLevel (getSpecFromStructure spec)
     in
         indent indentLevel ("..." ++ typeConditionString ++ directivesString ++ selectionSetString)
 
@@ -199,7 +199,7 @@ encodeOperation opType { name, variables, directives, spec } =
             ++ spacer
             ++ nameAndVariables
             ++ directivesString
-            ++ encodeSelectionSetSuffix 0 spec
+            ++ encodeSelectionSetSuffix 0 (getSpecFromStructure spec)
 
 
 encodeQuery : Query -> String
