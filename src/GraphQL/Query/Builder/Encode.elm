@@ -82,20 +82,20 @@ encodeSelections indentLevel selections =
         ++ indent indentLevel "}"
 
 
-encodeSelectionSet : Int -> Spec -> String
+encodeSelectionSet : Int -> SpecD -> String
 encodeSelectionSet indentLevel spec =
     case getBaseSpec spec of
-        ObjectSpec selections ->
+        ObjectSpecD selections ->
             encodeSelections indentLevel selections
 
         _ ->
             ""
 
 
-encodeSelectionSetSuffix : Int -> Spec -> String
+encodeSelectionSetSuffix : Int -> SpecD -> String
 encodeSelectionSetSuffix indentLevel spec =
     case getBaseSpec spec of
-        ObjectSpec selections ->
+        ObjectSpecD selections ->
             " " ++ encodeSelections indentLevel selections
 
         _ ->

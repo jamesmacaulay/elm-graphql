@@ -43,7 +43,7 @@ import Json.Decode as Decode exposing (Decoder)
 
 
 type alias Spec a b =
-    Decodable (Structure.Structure a) b
+    Decodable (Structure.Spec a) b
 
 
 type alias FragmentDefinition a =
@@ -87,27 +87,27 @@ getDecoder (Decodable _ decoder) =
     decoder
 
 
-string : Spec Structure.StringTypedSpec String
+string : Spec Structure.StringSpec String
 string =
     Decodable Structure.string Decode.string
 
 
-int : Spec Structure.IntTypedSpec Int
+int : Spec Structure.IntSpec Int
 int =
     Decodable Structure.int Decode.int
 
 
-float : Spec Structure.FloatTypedSpec Float
+float : Spec Structure.FloatSpec Float
 float =
     Decodable Structure.float Decode.float
 
 
-bool : Spec Structure.BooleanTypedSpec Bool
+bool : Spec Structure.BooleanSpec Bool
 bool =
     Decodable Structure.bool Decode.bool
 
 
-list : Spec a b -> Spec (Structure.ListTypedSpec a) (List b)
+list : Spec a b -> Spec (Structure.ListSpec a) (List b)
 list =
     mapDecodable Structure.list Decode.list
 
@@ -117,7 +117,7 @@ nullableDecoder decoder =
     Decode.oneOf [ Decode.map Just decoder, Decode.null Nothing ]
 
 
-nullable : Spec a b -> Spec (Structure.NullableTypedSpec a) (Maybe b)
+nullable : Spec a b -> Spec (Structure.NullableSpec a) (Maybe b)
 nullable =
     mapDecodable Structure.nullable nullableDecoder
 
@@ -199,7 +199,7 @@ andMap (Decodable littleSpec littleDecoder) (Decodable bigSpec bigDecoder) =
         Decodable spec decoder
 
 
-field : String -> List Structure.FieldOption -> Spec a b -> Spec Structure.ObjectTypedSpec b
+field : String -> List Structure.FieldOption -> Spec a b -> Spec Structure.ObjectSpec b
 field name fieldOptions (Decodable valueSpec valueDecoder) =
     let
         field =
@@ -218,8 +218,8 @@ withField :
     String
     -> List Structure.FieldOption
     -> Spec a b
-    -> Spec Structure.ObjectTypedSpec (b -> c)
-    -> Spec Structure.ObjectTypedSpec c
+    -> Spec Structure.ObjectSpec (b -> c)
+    -> Spec Structure.ObjectSpec c
 withField name fieldOptions decodableFieldSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (field name fieldOptions decodableFieldSpec)
@@ -228,7 +228,7 @@ withField name fieldOptions decodableFieldSpec decodableParentSpec =
 fragmentSpread :
     FragmentDefinition a
     -> List Structure.Directive
-    -> Spec Structure.ObjectTypedSpec (Maybe a)
+    -> Spec Structure.ObjectSpec (Maybe a)
 fragmentSpread (Decodable { name } fragmentDecoder) directives =
     let
         fragmentSpread =
@@ -248,8 +248,8 @@ fragmentSpread (Decodable { name } fragmentDecoder) directives =
 withFragment :
     FragmentDefinition a
     -> List Structure.Directive
-    -> Spec Structure.ObjectTypedSpec (Maybe a -> b)
-    -> Spec Structure.ObjectTypedSpec b
+    -> Spec Structure.ObjectSpec (Maybe a -> b)
+    -> Spec Structure.ObjectSpec b
 withFragment decodableFragmentDefinition directives decodableParentSpec =
     decodableParentSpec
         |> andMap (fragmentSpread decodableFragmentDefinition directives)
@@ -258,8 +258,8 @@ withFragment decodableFragmentDefinition directives decodableParentSpec =
 inlineFragment :
     Maybe String
     -> List Structure.Directive
-    -> Spec Structure.ObjectTypedSpec a
-    -> Spec Structure.ObjectTypedSpec (Maybe a)
+    -> Spec Structure.ObjectSpec a
+    -> Spec Structure.ObjectSpec (Maybe a)
 inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder) =
     let
         inlineFragment =
@@ -280,27 +280,27 @@ inlineFragment typeCondition directives (Decodable fragmentSpec fragmentDecoder)
 withInlineFragment :
     Maybe String
     -> List Structure.Directive
-    -> Spec Structure.ObjectTypedSpec a
-    -> Spec Structure.ObjectTypedSpec (Maybe a -> b)
-    -> Spec Structure.ObjectTypedSpec b
+    -> Spec Structure.ObjectSpec a
+    -> Spec Structure.ObjectSpec (Maybe a -> b)
+    -> Spec Structure.ObjectSpec b
 withInlineFragment typeCondition directives decodableFragmentSpec decodableParentSpec =
     decodableParentSpec
         |> andMap (inlineFragment typeCondition directives decodableFragmentSpec)
 
 
-fragment : String -> String -> List Structure.Directive -> Spec Structure.ObjectTypedSpec a -> FragmentDefinition a
+fragment : String -> String -> List Structure.Directive -> Spec Structure.ObjectSpec a -> FragmentDefinition a
 fragment name typeCondition directives spec =
     spec
         |> mapStructure (Structure.FragmentDefinition name typeCondition directives)
 
 
-query : List Structure.QueryOption -> Spec Structure.ObjectTypedSpec a -> Query a
+query : List Structure.QueryOption -> Spec Structure.ObjectSpec a -> Query a
 query queryOptions spec =
     spec
         |> mapStructure (Structure.query queryOptions)
 
 
-mutation : List Structure.MutationOption -> Spec Structure.ObjectTypedSpec a -> Mutation a
+mutation : List Structure.MutationOption -> Spec Structure.ObjectSpec a -> Mutation a
 mutation mutationOptions spec =
     spec
         |> mapStructure (Structure.mutation mutationOptions)

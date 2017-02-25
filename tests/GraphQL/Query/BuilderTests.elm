@@ -11,7 +11,7 @@ import String
 testSpecSuccess :
     String
     -> Q.Spec a b
-    -> S.Spec
+    -> S.SpecD
     -> Test.Test
 testSpecSuccess expr decodableSpec expectedSpec =
     test ("Spec success for " ++ expr) <|
@@ -41,35 +41,35 @@ tests : List Test.Test
 tests =
     [ testSpecSuccess "int"
         Q.int
-        S.IntSpec
+        S.IntSpecD
     , testDecoder "int"
         Q.int
         "1234"
         1234
     , testSpecSuccess "float"
         Q.float
-        S.FloatSpec
+        S.FloatSpecD
     , testDecoder "float"
         Q.float
         "12.34"
         12.34
     , testSpecSuccess "string"
         Q.string
-        S.StringSpec
+        S.StringSpecD
     , testDecoder "string"
         Q.string
         "\"hello\""
         "hello"
     , testSpecSuccess "bool"
         Q.bool
-        S.BooleanSpec
+        S.BooleanSpecD
     , testDecoder "bool"
         Q.bool
         "true"
         True
     , testSpecSuccess "(nullable int)"
         (Q.nullable Q.int)
-        (S.NullableSpec S.IntSpec)
+        (S.NullableSpecD S.IntSpecD)
     , testDecoder "(nullable int) decoding int"
         (Q.nullable Q.int)
         "1"
@@ -80,7 +80,7 @@ tests =
         Nothing
     , testSpecSuccess "(list int)"
         (Q.list Q.int)
-        (S.ListSpec S.IntSpec)
+        (S.ListSpecD S.IntSpecD)
     , testDecoder "(list int)"
         (Q.list Q.int)
         "[1, 2, 3]"
@@ -90,17 +90,17 @@ tests =
             |> Q.withField "name" [] Q.string
             |> Q.withField "number" [] Q.int
         )
-        (S.ObjectSpec
+        (S.ObjectSpecD
             [ S.FieldSelection
                 { name = "name"
-                , spec = S.StringSpec
+                , spec = S.StringSpecD
                 , fieldAlias = Nothing
                 , args = []
                 , directives = []
                 }
             , S.FieldSelection
                 { name = "number"
-                , spec = S.IntSpec
+                , spec = S.IntSpecD
                 , fieldAlias = Nothing
                 , args = []
                 , directives = []
@@ -119,7 +119,7 @@ tests =
             |> Q.andMap (Q.map String.reverse Q.string)
             |> Q.andMap (Q.map String.length Q.string)
         )
-        S.StringSpec
+        S.StringSpecD
     , testDecoder "(produce (,) |> andMap ...)"
         (Q.produce (,)
             |> Q.andMap (Q.map String.reverse Q.string)
