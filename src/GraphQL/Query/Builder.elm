@@ -51,11 +51,11 @@ type alias FragmentDefinition a =
 
 
 type alias Query a =
-    Decodable Structure.Query a
+    Decodable (Structure.Operation Structure.Query) a
 
 
 type alias Mutation a =
-    Decodable Structure.Mutation a
+    Decodable (Structure.Operation Structure.Mutation) a
 
 
 type Decodable node result

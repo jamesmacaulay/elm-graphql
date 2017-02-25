@@ -180,8 +180,18 @@ encodeVariableDefinitionList variableDefinitions =
         "(" ++ String.join ", " (List.map encodeVariableDefinition variableDefinitions) ++ ")"
 
 
-encodeOperation : String -> OperationConfig -> String
-encodeOperation opType { name, variables, directives, spec } =
+operationTypeName : OperationType -> String
+operationTypeName opType =
+    case opType of
+        QueryOperationType ->
+            "query"
+
+        MutationOperationType ->
+            "mutation"
+
+
+encodeOperation : Operation a -> String
+encodeOperation (Operation opType { name, variables, directives, spec }) =
     let
         nameAndVariables =
             Maybe.withDefault "" name ++ encodeVariableDefinitionList variables
@@ -195,18 +205,18 @@ encodeOperation opType { name, variables, directives, spec } =
         directivesString =
             encodeDirectivesSuffix directives
     in
-        opType
+        operationTypeName opType
             ++ spacer
             ++ nameAndVariables
             ++ directivesString
             ++ encodeSelectionSetSuffix 0 (getSpecFromStructure spec)
 
 
-encodeQuery : Query -> String
-encodeQuery (Query operationConfig) =
-    encodeOperation "query" operationConfig
+encodeQuery : Operation Query -> String
+encodeQuery queryOperation =
+    encodeOperation queryOperation
 
 
-encodeMutation : Mutation -> String
-encodeMutation (Mutation operationConfig) =
-    encodeOperation "mutation" operationConfig
+encodeMutation : Operation Mutation -> String
+encodeMutation mutationOperation =
+    encodeOperation mutationOperation
