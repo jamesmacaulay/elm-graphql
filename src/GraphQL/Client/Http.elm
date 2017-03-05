@@ -5,39 +5,62 @@ module GraphQL.Client.Http
         , rawRequest
         )
 
-import GraphQL.Query.Builder as QueryBuilder
-import GraphQL.Query.Builder.Encode as QueryEncode
+import GraphQL.Request.Builder as Builder
+import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Document.AST.Serialize as Serialize
+import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
+import GraphQL.Response as Response
 import Json.Decode
 import Json.Encode
 import Http
+import Tuple
 
 
-queryRequest : String -> QueryBuilder.Query a -> Maybe Json.Encode.Value -> Http.Request a
-queryRequest url query =
+variableValuesToJson : List ( String, Value.Constant ) -> Maybe Json.Encode.Value
+variableValuesToJson kvPairs =
+    if List.isEmpty kvPairs then
+        Nothing
+    else
+        kvPairs
+            |> List.map (Tuple.mapSecond ValueEncode.encode)
+            |> Json.Encode.object
+            |> Just
+
+
+request :
+    String
+    -> Builder.Request operationType result
+    -> Http.Request (Result (List Response.RequestError) result)
+request url request =
     let
         documentString =
-            query
-                |> QueryBuilder.getStructure
-                |> QueryEncode.encodeQuery
+            request
+                |> Builder.requestAST
+                |> Serialize.serializeDocument
 
         decoder =
-            QueryBuilder.getDecoder query
+            Builder.responseDecoder request
+
+        variableValuesJson =
+            variableValuesToJson request.variableValues
     in
-        rawRequest url documentString decoder
+        rawRequest url documentString decoder variableValuesJson
 
 
-mutationRequest : String -> QueryBuilder.Mutation a -> Maybe Json.Encode.Value -> Http.Request a
-mutationRequest url mutation =
-    let
-        documentString =
-            mutation
-                |> QueryBuilder.getStructure
-                |> QueryEncode.encodeMutation
+queryRequest :
+    String
+    -> Builder.Request Builder.Query result
+    -> Http.Request (Result (List Response.RequestError) result)
+queryRequest =
+    request
 
-        decoder =
-            QueryBuilder.getDecoder mutation
-    in
-        rawRequest url documentString decoder
+
+mutationRequest :
+    String
+    -> Builder.Request Builder.Mutation result
+    -> Http.Request (Result (List Response.RequestError) result)
+mutationRequest =
+    request
 
 
 rawRequest : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Http.Request a
@@ -56,8 +79,5 @@ rawRequest url documentString decoder variableValues =
 
         body =
             Http.jsonBody params
-
-        responseDecoder =
-            Json.Decode.at [ "data" ] decoder
     in
-        Http.post url body responseDecoder
+        Http.post url body decoder

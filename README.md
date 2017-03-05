@@ -10,12 +10,13 @@ Here's [a minimal end-to-end example](https://github.com/jamesmacaulay/elm-graph
 
 The interfaces provided by this library are still unstable and I expect them to change before I publish this library to the elm package repository.
 
-### Queries
+### Building requests
 
-Building up a GraphQL query with this library feels a lot like building a JSON decoder, especially if you're familiar with [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest). First you define type aliases for each of the nested record types you want to construct out of the response:
+Building up a GraphQL query with this library feels a lot like building a JSON decoder. First you define type aliases for each of the nested record types you want to construct out of the response:
+
 
 ```elm
-import GraphQL.Query.Builder exposing (..)
+import GraphQL.Request.Builder exposing (..)
 
 type alias Photo =
     { url : String
@@ -27,31 +28,52 @@ type alias User =
     , photos : List Photo }
 ```
 
-Then you build a query:
+Then you build a query operation:
 
 ```elm
-userQuery : Op User
+userQuery : Operation Query User
 userQuery =
     let
         photo =
-            produce Photo
+            map2 Photo
+                (field "url" [] string)
+                (field "caption" [] string)
+
+        user =
+            map2 User
+                (field "name" [] string)
+                (field "photos" [] (list photo))
+    in
+        query [] (field "user" [] user)
+```
+
+You can also use a pipeline style for constructing your queries, similar to [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest). The following code is equivalent to the last example:
+
+```elm
+userQuery : Operation Query User
+userQuery =
+    let
+        photo =
+            object Photo
                 |> withField "url" [] string
                 |> withField "caption" [] string
 
         user =
-            produce User
+            object User
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
     in
         query [] (field "user" [] user)
 ```
 
-The `Op` type can represent both query and mutation operations. It lets you do two important things:
+The tradeoff with the pipeline DSL is that the errors you get from the compiler can be more difficult to understand when you don't have the types lined up properly.
+
+The `Operation` type can represent both query and mutation operations. It lets you do two important things:
   
   * generate GraphQL request documents to send to the server, and
   * decode JSON responses from the server.
 
-Here's what the above query looks like when you encode it to a string to be sent to the server:
+Here's what the above Operation looks like when you encode it to a string to be sent to the server:
 
 ```graphql
 {

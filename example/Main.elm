@@ -1,8 +1,9 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, text)
-import GraphQL.Query.Builder exposing (..)
-import GraphQL.Query.Builder.Arg as Arg
+import GraphQL.Request.Builder exposing (..)
+import GraphQL.Request.Builder.Value as Value
+import GraphQL.Response as Response
 import GraphQL.Client.Http as GraphQLClient
 import Http
 
@@ -13,7 +14,7 @@ type alias FilmSummary =
     }
 
 
-connectionNodes : Spec a -> Spec (List a)
+connectionNodes : Spec nullability coreType result -> Spec NonNull ObjectType (List result)
 connectionNodes spec =
     field "edges" [] (list (field "node" [] spec))
 
@@ -37,35 +38,41 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsQuery : Query FilmSummary
-starWarsQuery =
+starWarsRequest : Request Query FilmSummary
+starWarsRequest =
     field "film"
-        [ fieldArgs [ ( "filmID", Arg.int 1 ) ] ]
-        (produce FilmSummary
-            |> withField "title" [] (nullable string)
-            |> withField "characterConnection"
-                [ fieldArgs [ ( "first", Arg.int 3 ) ] ]
+        [ args [ ( "filmID", Value.int 1 ) ] ]
+        (map2 FilmSummary
+            (field "title" [] (nullable string))
+            (field "characterConnection"
+                [ args [ ( "first", Value.int 3 ) ] ]
                 (connectionNodes (field "name" [] (nullable string)))
+            )
         )
         |> query []
+        |> request []
+
+
+type alias StarWarsResponse =
+    Result Http.Error (Result (List Response.RequestError) FilmSummary)
 
 
 type alias Model =
-    Maybe (Result Http.Error FilmSummary)
+    Maybe StarWarsResponse
 
 
 type Msg
-    = ReceiveQueryResponse (Result Http.Error FilmSummary)
+    = ReceiveQueryResponse StarWarsResponse
 
 
-queryRequest : Query a -> Http.Request a
-queryRequest query =
-    GraphQLClient.queryRequest "/" query Nothing
+queryRequest : Request Query a -> Http.Request (Result (List Response.RequestError) a)
+queryRequest request =
+    GraphQLClient.queryRequest "/" request
 
 
 sendStarWarsQuery : Cmd Msg
 sendStarWarsQuery =
-    queryRequest starWarsQuery
+    queryRequest starWarsRequest
         |> Http.send ReceiveQueryResponse
 
 
@@ -92,7 +99,7 @@ view model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update (ReceiveQueryResponse response) model =
-    Just response ! []
+    ( Just response, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg

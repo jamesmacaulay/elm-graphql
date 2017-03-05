@@ -1,8 +1,4 @@
-module GraphQL.Request.AST exposing (..)
-
-
-type Name
-    = Name String
+module GraphQL.Request.Document.AST exposing (..)
 
 
 type Document
@@ -17,7 +13,7 @@ type Definition
 
 type alias OperationDefinitionInfo =
     { operationType : OperationType
-    , name : Maybe Name
+    , name : Maybe String
     , variableDefinitions : List VariableDefinition
     , directives : List Directive
     , selectionSet : SelectionSet
@@ -40,67 +36,57 @@ type Selection
 
 
 type alias FieldInfo =
-    { fieldAlias : Maybe Name
-    , name : Name
-    , arguments : List Argument
+    { alias : Maybe String
+    , name : String
+    , arguments : List ( String, ArgumentValue )
     , directives : List Directive
     , selectionSet : SelectionSet
     }
 
 
-type Argument
-    = Argument Name Value
-
-
 type alias FragmentSpreadInfo =
-    { fragmentName : FragmentName
+    { name : String
     , directives : List Directive
     }
 
 
+type TypeCondition
+    = TypeCondition String
+
+
 type alias InlineFragmentInfo =
-    { typeCondition : Maybe Name
+    { typeCondition : Maybe TypeCondition
     , directives : List Directive
     , selectionSet : SelectionSet
     }
 
 
 type alias FragmentDefinitionInfo =
-    { fragmentName : FragmentName
-    , typeCondition : Name
+    { name : String
+    , typeCondition : TypeCondition
     , directives : List Directive
     , selectionSet : SelectionSet
     }
 
 
-type FragmentName
-    = FragmentName String
-
-
-type Value
-    = VariableValue Name
-    | ScalarValue ConstantScalarValue
-    | ListValue (List Value)
-    | ObjectValue (List ( Name, Value ))
-
-
-type ConstantValue
-    = ConstantScalarValue ConstantScalarValue
-    | ConstantListValue (List ConstantValue)
-    | ConstantObjectValue (List ( Name, ConstantValue ))
-
-
-type ConstantScalarValue
-    = IntValue Int
+type Value variableConstraint
+    = VariableValue variableConstraint String
+    | IntValue Int
     | FloatValue Float
     | StringValue String
     | BooleanValue Bool
     | NullValue
-    | EnumValue EnumString
+    | EnumValue String
+    | ListValue (List (Value variableConstraint))
+    | ObjectValue (List ( String, Value variableConstraint ))
 
 
-type EnumString
-    = EnumString String
+type alias ConstantValue =
+    Value Never
+
+
+type alias ArgumentValue =
+    Value ()
 
 
 type VariableDefinition
@@ -108,20 +94,24 @@ type VariableDefinition
 
 
 type alias VariableDefinitionInfo =
-    { name : Name
-    , variableType : Type
+    { name : String
+    , variableType : TypeRef
     , defaultValue : Maybe ConstantValue
     }
 
 
-type NullableType
-    = NamedType Name
-    | ListType Type
+type TypeRef
+    = TypeRef Nullability CoreTypeRef
 
 
-type Type
-    = Nullable NullableType
-    | NonNull NullableType
+type Nullability
+    = Nullable
+    | NonNull
+
+
+type CoreTypeRef
+    = NamedTypeRef String
+    | ListTypeRef TypeRef
 
 
 type Directive
@@ -129,6 +119,6 @@ type Directive
 
 
 type alias DirectiveInfo =
-    { name : Name
-    , arguments : List Argument
+    { name : String
+    , arguments : List ( String, ArgumentValue )
     }
