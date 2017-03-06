@@ -12,4 +12,4 @@ tests =
 
 all : Test.Test
 all =
-    describe "GraphQL.Query.Http" tests
+    describe "GraphQL.Client.Http" tests
