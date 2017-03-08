@@ -7,7 +7,6 @@ module GraphQL.Client.Http
 
 import GraphQL.Request.Builder as Builder
 import GraphQL.Request.Builder.Value as Value
-import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
 import GraphQL.Response as Response
 import Json.Decode
@@ -30,19 +29,17 @@ variableValuesToJson kvPairs =
 request :
     String
     -> Builder.Request operationType result
-    -> Http.Request (Result (List Response.RequestError) result)
+    -> Http.Request result
 request url request =
     let
         documentString =
-            request
-                |> Builder.requestAST
-                |> Serialize.serializeDocument
+            Builder.requestBody request
 
         decoder =
             Builder.responseDecoder request
 
         variableValuesJson =
-            variableValuesToJson request.variableValues
+            request |> Builder.requestVariableValues |> variableValuesToJson
     in
         rawRequest url documentString decoder variableValuesJson
 
@@ -50,7 +47,7 @@ request url request =
 queryRequest :
     String
     -> Builder.Request Builder.Query result
-    -> Http.Request (Result (List Response.RequestError) result)
+    -> Http.Request result
 queryRequest =
     request
 
@@ -58,7 +55,7 @@ queryRequest =
 mutationRequest :
     String
     -> Builder.Request Builder.Mutation result
-    -> Http.Request (Result (List Response.RequestError) result)
+    -> Http.Request result
 mutationRequest =
     request
 

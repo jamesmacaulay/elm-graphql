@@ -1,14 +1,16 @@
 module GraphQL.Response
     exposing
-        ( RequestError
+        ( Error
         , DocumentLocation
         , decoder
+        , successDecoder
+        , errorsDecoder
         )
 
 import Json.Decode as Decode exposing (Decoder)
 
 
-type alias RequestError =
+type alias Error =
     { message : String
     , locations : List DocumentLocation
     }
@@ -20,21 +22,32 @@ type alias DocumentLocation =
     }
 
 
-decoder : Decoder result -> Decoder (Result (List RequestError) result)
-decoder successDecoder =
+decoder : Decoder result -> Decoder (Result (List Error) result)
+decoder d =
     Decode.oneOf
-        [ Decode.field "data"
-            (Decode.map Ok successDecoder)
-        , Decode.field "errors"
-            (Decode.map Err (Decode.list errorDecoder))
+        [ Decode.map Ok (successDecoder d)
+        , Decode.map Err errorsDecoder
         ]
 
 
-errorDecoder : Decoder RequestError
-errorDecoder =
-    Decode.map2 RequestError
-        (Decode.field "message" Decode.string)
-        (Decode.field "locations" (Decode.list documentLocationDecoder))
+successDecoder : Decoder result -> Decoder result
+successDecoder decoder =
+    Decode.field "data" decoder
+
+
+errorsDecoder : Decoder (List Error)
+errorsDecoder =
+    Decode.field "errors"
+        (Decode.list
+            (Decode.map2 Error
+                (Decode.field "message" Decode.string)
+                (Decode.oneOf
+                    [ Decode.field "locations" (Decode.list documentLocationDecoder)
+                    , Decode.succeed []
+                    ]
+                )
+            )
+        )
 
 
 documentLocationDecoder : Decoder DocumentLocation

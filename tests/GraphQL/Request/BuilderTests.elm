@@ -6,6 +6,7 @@ import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
 import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Request.Document.AST.Serialize as Serialize
+import GraphQL.Response as Response
 import Json.Decode as Decode
 
 
@@ -21,7 +22,7 @@ testDecoder expr request testJSON expectedResult =
             request
                 |> responseDecoder
                 |> flip Decode.decodeString testJSON
-                |> Expect.equal (Ok (Ok expectedResult))
+                |> Expect.equal (Ok expectedResult)
 
 
 type alias ExampleQueryRoot =
@@ -76,7 +77,7 @@ exampleQueryRequest =
                         )
                     )
             )
-        |> query
+        |> queryDocument
             [ ( "userId", TypeRef.string, Nothing )
             , ( "includeProjects", TypeRef.nullable TypeRef.boolean, Just Value.false )
             ]
@@ -128,8 +129,7 @@ tests =
     [ test "encoding a request" <|
         \() ->
             exampleQueryRequest
-                |> requestAST
-                |> Serialize.serializeDocument
+                |> requestBody
                 |> Expect.equal """query ($userId: String!, $includeProjects: Boolean = false) {
   user(id: $userId) {
     id
@@ -144,7 +144,8 @@ tests =
 }"""
     , test "variable values of a request" <|
         \() ->
-            exampleQueryRequest.variableValues
+            exampleQueryRequest
+                |> requestVariableValues
                 |> Expect.equal
                     [ ( "userId", Value.string "123" )
                     , ( "includeProjects", Value.bool True )
@@ -155,37 +156,33 @@ tests =
                 |> Decode.decodeString (responseDecoder exampleQueryRequest)
                 |> Expect.equal
                     (Ok
-                        (Ok
-                            { user =
-                                { id = "123"
-                                , name = "alice"
-                                , role = ExampleAdminRole
-                                , projects =
-                                    [ { id = "456"
-                                      , name = "Top Secret Project"
-                                      , featured = False
-                                      }
-                                    ]
-                                }
+                        { user =
+                            { id = "123"
+                            , name = "alice"
+                            , role = ExampleAdminRole
+                            , projects =
+                                [ { id = "456"
+                                  , name = "Top Secret Project"
+                                  , featured = False
+                                  }
+                                ]
                             }
-                        )
+                        }
                     )
     , test "decoding an error response of a request" <|
         \() ->
             exampleErrorResponse
-                |> Decode.decodeString (responseDecoder exampleQueryRequest)
+                |> Decode.decodeString Response.errorsDecoder
                 |> Expect.equal
                     (Ok
-                        (Err
-                            [ { message = "Cannot query field \"user\" on type \"Query\"."
-                              , locations =
-                                    [ { line = 2
-                                      , column = 3
-                                      }
-                                    ]
-                              }
-                            ]
-                        )
+                        [ { message = "Cannot query field \"user\" on type \"Query\"."
+                          , locations =
+                                [ { line = 2
+                                  , column = 3
+                                  }
+                                ]
+                          }
+                        ]
                     )
     ]
 

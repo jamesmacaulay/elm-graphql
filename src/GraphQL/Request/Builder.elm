@@ -1,6 +1,7 @@
 module GraphQL.Request.Builder
     exposing
         ( Request
+        , Document
         , Operation
         , Query
         , Mutation
@@ -17,10 +18,12 @@ module GraphQL.Request.Builder
         , Nullable
         , NonNull
         , request
-        , query
-        , queryOperationType
-        , mutation
-        , mutationOperationType
+        , requestBody
+        , requestBodyAST
+        , requestVariableValues
+        , responseDecoder
+        , queryDocument
+        , mutationDocument
         , fragment
         , int
         , float
@@ -47,13 +50,11 @@ module GraphQL.Request.Builder
         , map7
         , map8
         , andMap
-        , requestAST
-        , responseDecoder
-        , specDecoder
         )
 
 import Json.Decode as Decode exposing (Decoder)
 import GraphQL.Request.Document.AST as AST
+import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Util as Util
 import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Request.Builder.Value as Value
@@ -70,27 +71,38 @@ type alias TypeCondition =
     AST.TypeCondition
 
 
-type alias Fragment result =
-    { name : String
-    , typeCondition : TypeCondition
-    , directives : List ( String, List ( String, Value.Argument ) )
-    , spec : Spec NonNull ObjectType result
-    }
+type Fragment result
+    = Fragment
+        { name : String
+        , typeCondition : TypeCondition
+        , directives : List ( String, List ( String, Value.Argument ) )
+        , spec : Spec NonNull ObjectType result
+        }
 
 
-type alias Request operationType result =
-    { operation : Operation operationType result
-    , variableValues : List ( String, Value.Constant )
-    }
+type Request operationType result
+    = Request
+        { document : Document operationType result
+        , variableValues : List ( String, Value.Constant )
+        }
 
 
-type alias Operation operationType result =
-    { operationType : OperationType operationType
-    , name : Maybe String
-    , variableDefinitions : List ( String, TypeRef.TypeRef, Maybe Value.Constant )
-    , directives : List ( String, List ( String, Value.Argument ) )
-    , spec : Spec NonNull ObjectType result
-    }
+type Document operationType result
+    = Document
+        { operation : Operation operationType result
+        , ast : AST.Document
+        , serialized : String
+        }
+
+
+type Operation operationType result
+    = Operation
+        { operationType : OperationType operationType
+        , name : Maybe String
+        , variableDefinitions : List ( String, TypeRef.TypeRef, Maybe Value.Constant )
+        , directives : List ( String, List ( String, Value.Argument ) )
+        , spec : Spec NonNull ObjectType result
+        }
 
 
 type OperationType operationType
@@ -182,23 +194,61 @@ type FieldOption
 
 request :
     List ( String, Value.Constant )
-    -> Operation operationType result
+    -> Document operationType result
     -> Request operationType result
-request variableValues operation =
-    Request operation variableValues
+request variableValues document =
+    Request { document = document, variableValues = variableValues }
 
 
-query :
+requestBody : Request operationType result -> String
+requestBody (Request { document }) =
+    documentString document
+
+
+requestBodyAST : Request operationType result -> AST.Document
+requestBodyAST (Request { document }) =
+    documentAST document
+
+
+requestVariableValues : Request operationType result -> List ( String, Value.Constant )
+requestVariableValues (Request { variableValues }) =
+    variableValues
+
+
+responseDecoder : Request operationType result -> Decoder result
+responseDecoder (Request { document }) =
+    documentResponseDecoder document
+        |> Response.successDecoder
+
+
+document : Operation operationType result -> Document operationType result
+document operation =
+    let
+        ast =
+            AST.Document
+                [ AST.OperationDefinition (operationAST operation) ]
+    in
+        Document
+            { operation = operation
+            , ast = ast
+            , serialized = Serialize.serializeDocument ast
+            }
+
+
+queryDocument :
     List ( String, TypeRef.TypeRef, Maybe Value.Constant )
     -> Spec NonNull ObjectType result
-    -> Operation Query result
-query variableDefinitions spec =
-    { operationType = queryOperationType
-    , name = Nothing
-    , variableDefinitions = variableDefinitions
-    , directives = []
-    , spec = spec
-    }
+    -> Document Query result
+queryDocument variableDefinitions spec =
+    document
+        (Operation
+            { operationType = queryOperationType
+            , name = Nothing
+            , variableDefinitions = variableDefinitions
+            , directives = []
+            , spec = spec
+            }
+        )
 
 
 queryOperationType : OperationType Query
@@ -206,17 +256,20 @@ queryOperationType =
     QueryOperationType
 
 
-mutation :
+mutationDocument :
     List ( String, TypeRef.TypeRef, Maybe Value.Constant )
     -> Spec NonNull ObjectType result
-    -> Operation Mutation result
-mutation variableDefinitions spec =
-    { operationType = mutationOperationType
-    , name = Nothing
-    , variableDefinitions = variableDefinitions
-    , directives = []
-    , spec = spec
-    }
+    -> Document Mutation result
+mutationDocument variableDefinitions spec =
+    document
+        (Operation
+            { operationType = mutationOperationType
+            , name = Nothing
+            , variableDefinitions = variableDefinitions
+            , directives = []
+            , spec = spec
+            }
+        )
 
 
 mutationOperationType : OperationType Mutation
@@ -230,11 +283,12 @@ fragment :
     -> Spec NonNull ObjectType result
     -> Fragment result
 fragment name typeCondition spec =
-    { name = name
-    , typeCondition = typeCondition
-    , directives = []
-    , spec = spec
-    }
+    Fragment
+        { name = name
+        , typeCondition = typeCondition
+        , directives = []
+        , spec = spec
+        }
 
 
 onType : String -> TypeCondition
@@ -692,7 +746,7 @@ operationTypeAST operationType =
 
 
 operationAST : Operation operationType result -> AST.OperationDefinitionInfo
-operationAST { operationType, name, variableDefinitions, directives, spec } =
+operationAST (Operation { operationType, name, variableDefinitions, directives, spec }) =
     { operationType = operationTypeAST operationType
     , name = name
     , variableDefinitions = List.map variableDefinitionAST variableDefinitions
@@ -702,7 +756,7 @@ operationAST { operationType, name, variableDefinitions, directives, spec } =
 
 
 fragmentAST : Fragment result -> AST.FragmentDefinitionInfo
-fragmentAST { name, typeCondition, directives, spec } =
+fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     { name = name
     , typeCondition = typeCondition
     , directives = List.map directiveAST directives
@@ -710,17 +764,25 @@ fragmentAST { name, typeCondition, directives, spec } =
     }
 
 
-requestAST : Request operationType result -> AST.Document
-requestAST { operation } =
-    AST.Document
-        [ AST.OperationDefinition (operationAST operation) ]
+documentAST : Document operationType result -> AST.Document
+documentAST (Document { ast }) =
+    ast
 
 
-responseDecoder :
-    Request operationType result
-    -> Decoder (Result (List Response.RequestError) result)
-responseDecoder request =
-    Response.decoder (specDecoder request.operation.spec)
+documentString : Document operationType result -> String
+documentString (Document { serialized }) =
+    serialized
+
+
+documentResponseDecoder :
+    Document operationType result
+    -> Decoder result
+documentResponseDecoder (Document { operation }) =
+    let
+        (Operation { spec }) =
+            operation
+    in
+        specDecoder spec
 
 
 specDecoder : Spec nullability coreType result -> Decoder result
