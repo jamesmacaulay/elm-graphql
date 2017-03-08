@@ -3,9 +3,8 @@ module Main exposing (..)
 import Html exposing (Html, div, text)
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
-import GraphQL.Response as Response
 import GraphQL.Client.Http as GraphQLClient
-import Http
+import Task exposing (Task)
 
 
 type alias FilmSummary =
@@ -49,12 +48,12 @@ starWarsRequest =
                 (connectionNodes (field "name" [] (nullable string)))
             )
         )
-        |> query []
+        |> queryDocument []
         |> request []
 
 
 type alias StarWarsResponse =
-    Result Http.Error (Result (List Response.RequestError) FilmSummary)
+    Result GraphQLClient.Error FilmSummary
 
 
 type alias Model =
@@ -65,15 +64,15 @@ type Msg
     = ReceiveQueryResponse StarWarsResponse
 
 
-queryRequest : Request Query a -> Http.Request (Result (List Response.RequestError) a)
+queryRequest : Request Query a -> Task GraphQLClient.Error a
 queryRequest request =
-    GraphQLClient.queryRequest "/" request
+    GraphQLClient.sendQuery "/" request
 
 
 sendStarWarsQuery : Cmd Msg
 sendStarWarsQuery =
     queryRequest starWarsRequest
-        |> Http.send ReceiveQueryResponse
+        |> Task.attempt ReceiveQueryResponse
 
 
 main : Program Never Model Msg

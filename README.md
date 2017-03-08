@@ -28,10 +28,10 @@ type alias User =
     , photos : List Photo }
 ```
 
-Then you build a query operation:
+Then you build a query document:
 
 ```elm
-userQuery : Operation Query User
+userQuery : Document Query User
 userQuery =
     let
         photo =
@@ -44,13 +44,13 @@ userQuery =
                 (field "name" [] string)
                 (field "photos" [] (list photo))
     in
-        query [] (field "user" [] user)
+        queryDocument [] (field "user" [] user)
 ```
 
-You can also use a pipeline style for constructing your queries, similar to [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest). The following code is equivalent to the last example:
+You can also use a pipeline style for constructing your queries, similar to the [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest) library. The following code is equivalent to the last example:
 
 ```elm
-userQuery : Operation Query User
+userQuery : Document Query User
 userQuery =
     let
         photo =
@@ -63,17 +63,17 @@ userQuery =
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
     in
-        query [] (field "user" [] user)
+        queryDocument [] (field "user" [] user)
 ```
 
-The tradeoff with the pipeline DSL is that the errors you get from the compiler can be more difficult to understand when you don't have the types lined up properly.
+The tradeoff with the pipeline DSL is that the errors you get from the compiler can be more difficult to understand when you don't have the types lined up properly. This is the same tradeoff you make when using `elm-decode-pipeline` to decode JSON.
 
-The `Operation` type can represent both query and mutation operations. It lets you do two important things:
+The `Document` type can represent both query and mutation documents. It lets you do two important things:
   
   * generate GraphQL request documents to send to the server, and
   * decode JSON responses from the server.
 
-Here's what the above Operation looks like when you encode it to a string to be sent to the server:
+Here's what the above Document looks like when you encode it to a string to be sent to the server:
 
 ```graphql
 {

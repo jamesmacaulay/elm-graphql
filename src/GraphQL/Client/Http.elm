@@ -1,8 +1,9 @@
 module GraphQL.Client.Http
     exposing
-        ( queryRequest
-        , mutationRequest
-        , rawRequest
+        ( Error
+        , sendQuery
+        , sendMutation
+        , sendRaw
         )
 
 import GraphQL.Request.Builder as Builder
@@ -13,6 +14,12 @@ import Json.Decode
 import Json.Encode
 import Http
 import Tuple
+import Task exposing (Task)
+
+
+type Error
+    = HttpError Http.Error
+    | GraphQLError (List Response.Error)
 
 
 variableValuesToJson : List ( String, Value.Constant ) -> Maybe Json.Encode.Value
@@ -26,11 +33,11 @@ variableValuesToJson kvPairs =
             |> Just
 
 
-request :
+send :
     String
     -> Builder.Request operationType result
-    -> Http.Request result
-request url request =
+    -> Task Error result
+send url request =
     let
         documentString =
             Builder.requestBody request
@@ -39,29 +46,52 @@ request url request =
             Builder.responseDecoder request
 
         variableValuesJson =
-            request |> Builder.requestVariableValues |> variableValuesToJson
+            request
+                |> Builder.requestVariableValues
+                |> variableValuesToJson
     in
-        rawRequest url documentString decoder variableValuesJson
+        sendRaw url documentString decoder variableValuesJson
 
 
-queryRequest :
+sendQuery :
     String
     -> Builder.Request Builder.Query result
-    -> Http.Request result
-queryRequest =
-    request
+    -> Task Error result
+sendQuery =
+    send
 
 
-mutationRequest :
+sendMutation :
     String
     -> Builder.Request Builder.Mutation result
-    -> Http.Request result
-mutationRequest =
-    request
+    -> Task Error result
+sendMutation =
+    send
 
 
-rawRequest : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Http.Request a
-rawRequest url documentString decoder variableValues =
+handleErrorWithResponseBody : Http.Error -> String -> Error
+handleErrorWithResponseBody error responseBody =
+    responseBody
+        |> Json.Decode.decodeString Response.errorsDecoder
+        |> Result.map GraphQLError
+        |> Result.withDefault (HttpError error)
+
+
+convertHttpError : Http.Error -> Error
+convertHttpError error =
+    case error of
+        Http.BadStatus { body } ->
+            handleErrorWithResponseBody error body
+
+        Http.BadPayload _ { body } ->
+            handleErrorWithResponseBody error body
+
+        _ ->
+            HttpError error
+
+
+sendRaw : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Error a
+sendRaw url documentString decoder variableValues =
     let
         documentValue =
             Json.Encode.string documentString
@@ -78,3 +108,5 @@ rawRequest url documentString decoder variableValues =
             Http.jsonBody params
     in
         Http.post url body decoder
+            |> Http.toTask
+            |> Task.mapError convertHttpError

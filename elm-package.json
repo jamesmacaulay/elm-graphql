@@ -6,7 +6,13 @@
     "source-directories": [
         "src"
     ],
-    "exposed-modules": [],
+    "exposed-modules": [
+        "GraphQL.Client.Http",
+        "GraphQL.Request.Builder",
+        "GraphQL.Request.Builder.Value",
+        "GraphQL.Request.Builder.TypeRef",
+        "GraphQL.Response"
+    ],
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
         "elm-lang/http": "1.0.0 <= v < 2.0.0"

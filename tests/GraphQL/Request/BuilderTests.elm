@@ -5,7 +5,6 @@ import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
 import GraphQL.Request.Builder.TypeRef as TypeRef
-import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Response as Response
 import Json.Decode as Decode
 
