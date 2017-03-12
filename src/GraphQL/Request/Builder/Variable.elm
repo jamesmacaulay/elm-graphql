@@ -18,7 +18,7 @@ type NonNull
 
 type Variable source
     = RequiredVariable String TypeRef (source -> AST.ConstantValue)
-    | OptionalVariable String TypeRef (source -> Maybe AST.ConstantValue) AST.ConstantValue
+    | OptionalVariable String TypeRef (source -> AST.ConstantValue) AST.ConstantValue
 
 
 type Field source
@@ -40,9 +40,9 @@ required name extract (Spec _ typeRef convert) =
     RequiredVariable name typeRef (extract >> convert)
 
 
-optional : String -> (a -> Maybe b) -> Spec Nullable b -> b -> Variable a
+optional : String -> (a -> b) -> Spec Nullable b -> b -> Variable a
 optional name extractMaybe (Spec Nullable typeRef convert) defaultValue =
-    OptionalVariable name typeRef (extractMaybe >> Maybe.map convert) (convert defaultValue)
+    OptionalVariable name typeRef (extractMaybe >> convert) (convert defaultValue)
 
 
 int : Spec NonNull Int
@@ -129,8 +129,12 @@ valueFromSource source var =
             Just ( name var, (f source) )
 
         OptionalVariable _ _ f _ ->
-            f source
-                |> Maybe.map ((,) (name var))
+            case f source of
+                AST.NullValue ->
+                    Nothing
+
+                value ->
+                    Just ( name var, value )
 
 
 extractValuesFrom : source -> List (Variable source) -> List ( String, AST.ConstantValue )

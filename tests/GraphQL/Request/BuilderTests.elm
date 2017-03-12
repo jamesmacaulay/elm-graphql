@@ -5,7 +5,6 @@ import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
 import GraphQL.Request.Builder.Variable as Variable
-import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Response as Response
 import Json.Decode as Decode
 
@@ -52,15 +51,32 @@ type ExampleRole
 
 type alias ExampleVariables =
     { userId : String
-    , includeProjects : Maybe (Maybe Bool)
+    , includeProjects : Maybe Bool
     }
+
+
+userIdVar : Variable.Variable { v | userId : String }
+userIdVar =
+    Variable.required
+        "userId"
+        .userId
+        Variable.string
+
+
+includeProjectsVar : Variable.Variable { v | includeProjects : Maybe Bool }
+includeProjectsVar =
+    Variable.optional
+        "includeProjects"
+        .includeProjects
+        (Variable.nullable Variable.bool)
+        (Just False)
 
 
 exampleQueryRequest : Request Query ExampleVariables ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
         |> withField "user"
-            [ args [ ( "id", Value.variable (Variable.required "userId" .userId Variable.string) ) ] ]
+            [ args [ ( "id", Value.variable userIdVar ) ] ]
             (object ExampleQueryUser
                 |> withField "id" [] id
                 |> withField "name" [] string
@@ -73,7 +89,7 @@ exampleQueryRequest =
                     )
                 |> withField "projects"
                     [ args [ ( "first", Value.int 1 ) ]
-                    , directive "include" [ ( "if", Value.variable (Variable.optional "includeProjects" .includeProjects (Variable.nullable Variable.bool) (Just False)) ) ]
+                    , directive "include" [ ( "if", Value.variable includeProjectsVar ) ]
                     ]
                     (list
                         (object ExampleQueryProject
@@ -86,7 +102,7 @@ exampleQueryRequest =
         |> queryDocument
         |> request
             { userId = "123"
-            , includeProjects = Just (Just True)
+            , includeProjects = Just True
             }
 
 
