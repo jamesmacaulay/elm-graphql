@@ -3,6 +3,7 @@ module Main exposing (..)
 import Html exposing (Html, div, text)
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Client.Http as GraphQLClient
 import Task exposing (Task)
 
@@ -13,7 +14,7 @@ type alias FilmSummary =
     }
 
 
-connectionNodes : Spec nullability coreType result -> Spec NonNull ObjectType (List result)
+connectionNodes : Spec nullability coreType variableSource result -> Spec NonNull ObjectType variableSource (List result)
 connectionNodes spec =
     field "edges" [] (list (field "node" [] spec))
 
@@ -37,19 +38,29 @@ will later be encoded into the following GraphQL query to send to the server:
 The same decodable query value is then also used to decode the response into a
 `FilmSummary`.
 -}
-starWarsRequest : Request Query FilmSummary
+starWarsRequest : Request Query { filmID : String, pageSize : Maybe Int } FilmSummary
 starWarsRequest =
-    field "film"
-        [ args [ ( "filmID", Value.int 1 ) ] ]
-        (map2 FilmSummary
-            (field "title" [] (nullable string))
-            (field "characterConnection"
-                [ args [ ( "first", Value.int 3 ) ] ]
-                (connectionNodes (field "name" [] (nullable string)))
+    let
+        filmIDVar =
+            Var.required "filmID" .filmID Var.id
+
+        pageSizeVar =
+            Var.optional "pageSize" .pageSize (Var.nullable Var.int) (Just 3)
+    in
+        field "film"
+            [ args [ ( "filmID", Value.variable filmIDVar ) ] ]
+            (map2 FilmSummary
+                (field "title" [] (nullable string))
+                (field "characterConnection"
+                    [ args [ ( "first", Value.variable pageSizeVar ) ] ]
+                    (connectionNodes (field "name" [] (nullable string)))
+                )
             )
-        )
-        |> queryDocument []
-        |> request []
+            |> queryDocument
+            |> request
+                { filmID = "1"
+                , pageSize = Nothing
+                }
 
 
 type alias StarWarsResponse =
@@ -64,7 +75,7 @@ type Msg
     = ReceiveQueryResponse StarWarsResponse
 
 
-queryRequest : Request Query a -> Task GraphQLClient.Error a
+queryRequest : Request Query variableSource a -> Task GraphQLClient.Error a
 queryRequest request =
     GraphQLClient.sendQuery "/" request
 
