@@ -33,7 +33,7 @@ type alias ExampleQueryUser =
     { id : String
     , name : String
     , role : ExampleRole
-    , projects : List ExampleQueryProject
+    , projects : Maybe (List ExampleQueryProject)
     }
 
 
@@ -72,6 +72,24 @@ includeProjectsVar =
         (Just False)
 
 
+exampleQueryUserProjectsFragment : Fragment ExampleVariables (List ExampleQueryProject)
+exampleQueryUserProjectsFragment =
+    fragment "userProjectsFragment"
+        (onType "User")
+        (field "projects"
+            [ args [ ( "first", Value.int 1 ) ]
+            , directive "include" [ ( "if", Value.variable includeProjectsVar ) ]
+            ]
+            (list
+                (object ExampleQueryProject
+                    |> withField "id" [] id
+                    |> withField "name" [] string
+                    |> withField "featured" [] bool
+                )
+            )
+        )
+
+
 exampleQueryRequest : Request Query ExampleVariables ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
@@ -87,17 +105,7 @@ exampleQueryRequest =
                         , ( "MEMBER", ExampleMemberRole )
                         ]
                     )
-                |> withField "projects"
-                    [ args [ ( "first", Value.int 1 ) ]
-                    , directive "include" [ ( "if", Value.variable includeProjectsVar ) ]
-                    ]
-                    (list
-                        (object ExampleQueryProject
-                            |> withField "id" [] id
-                            |> withField "name" [] string
-                            |> withField "featured" [] bool
-                        )
-                    )
+                |> withFragment exampleQueryUserProjectsFragment []
             )
         |> queryDocument
         |> request
@@ -149,16 +157,20 @@ tests =
         \() ->
             exampleQueryRequest
                 |> requestBody
-                |> Expect.equal """query ($userId: String!, $includeProjects: Boolean = false) {
+                |> Expect.equal """fragment userProjectsFragment on User {
+  projects(first: 1) @include(if: $includeProjects) {
+    id
+    name
+    featured
+  }
+}
+
+query ($userId: String!, $includeProjects: Boolean = false) {
   user(id: $userId) {
     id
     name
     role
-    projects(first: 1) @include(if: $includeProjects) {
-      id
-      name
-      featured
-    }
+    ...userProjectsFragment
   }
 }"""
     , test "variable values of a request" <|
@@ -180,11 +192,12 @@ tests =
                             , name = "alice"
                             , role = ExampleAdminRole
                             , projects =
-                                [ { id = "456"
-                                  , name = "Top Secret Project"
-                                  , featured = False
-                                  }
-                                ]
+                                Just
+                                    [ { id = "456"
+                                      , name = "Top Secret Project"
+                                      , featured = False
+                                      }
+                                    ]
                             }
                         }
                     )

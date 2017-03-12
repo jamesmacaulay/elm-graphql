@@ -25,6 +25,7 @@ module GraphQL.Request.Builder
         , queryDocument
         , mutationDocument
         , fragment
+        , onType
         , int
         , float
         , string
@@ -41,6 +42,8 @@ module GraphQL.Request.Builder
         , alias
         , args
         , directive
+        , withFragment
+        , fragmentSpread
         , map
         , map2
         , map3
@@ -65,7 +68,7 @@ import Set exposing (Set)
 
 
 type Spec nullability coreType variableSource result
-    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource))
+    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
 
 
 type alias TypeCondition =
@@ -226,12 +229,26 @@ responseDecoder (Request { document }) =
         |> Response.successDecoder
 
 
+fragmentDefinitionsFromOperation : Operation operationType variableSource result -> List AST.FragmentDefinitionInfo
+fragmentDefinitionsFromOperation (Operation { spec }) =
+    let
+        (Spec _ _ _ fragments) =
+            spec
+    in
+        fragments
+
+
 document : Operation operationType variableSource result -> Document operationType variableSource result
 document operation =
     let
+        fragmentDefinitions =
+            fragmentDefinitionsFromOperation operation
+
         ast =
             AST.Document
-                [ AST.OperationDefinition (operationAST operation) ]
+                (List.map AST.FragmentDefinition fragmentDefinitions
+                    ++ [ AST.OperationDefinition (operationAST operation) ]
+                )
     in
         Document
             { operation = operation
@@ -301,7 +318,7 @@ object :
     (fieldValue -> result)
     -> Spec NonNull ObjectType variableSource (fieldValue -> result)
 object ctr =
-    Spec emptyObjectSpecifiedType (always (Decode.succeed ctr)) []
+    Spec emptyObjectSpecifiedType (always (Decode.succeed ctr)) [] []
 
 
 withField :
@@ -320,7 +337,7 @@ field :
     -> List (FieldOption variableSource)
     -> Spec nullability coreType variableSource result
     -> Spec NonNull ObjectType variableSource result
-field name fieldOptions (Spec sourceType fieldDecoder fieldVars) =
+field name fieldOptions (Spec sourceType fieldDecoder fieldVars fragments) =
     let
         astFieldInfo =
             fieldOptions
@@ -358,6 +375,7 @@ field name fieldOptions (Spec sourceType fieldDecoder fieldVars) =
             )
             decoder
             vars
+            fragments
 
 
 alias : String -> FieldOption variableSource
@@ -375,6 +393,51 @@ directive =
     FieldDirective
 
 
+withFragment :
+    Fragment variableSource a
+    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> Spec NonNull ObjectType variableSource (Maybe a -> b)
+    -> Spec NonNull ObjectType variableSource b
+withFragment fragment directives fSpec =
+    fSpec
+        |> andMap (fragmentSpread fragment directives)
+
+
+fragmentSpread :
+    Fragment variableSource result
+    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> Spec NonNull ObjectType variableSource (Maybe result)
+fragmentSpread ((Fragment { name, spec }) as fragment) directives =
+    let
+        astFragmentSpreadInfo =
+            { name = name
+            , directives = List.map directiveAST directives
+            }
+
+        selectionSet =
+            AST.SelectionSet [ AST.FragmentSpread astFragmentSpreadInfo ]
+
+        (Spec _ _ _ nestedFragments) =
+            spec
+    in
+        Spec
+            (SpecifiedType
+                { nullability = nonNullFlag
+                , coreType = ObjectType
+                , join = always
+                , selectionSet = selectionSet
+                }
+            )
+            (always (Decode.maybe (specDecoder spec)))
+            (mergeVariables (varsFromDirectives directives) (fragmentVariables fragment))
+            (mergeFragments [ fragmentAST fragment ] nestedFragments)
+
+
+varsFromArguments : List ( String, Value.Argument variableSource ) -> List (Variable variableSource)
+varsFromArguments arguments =
+    List.concatMap (Value.getVariables << Tuple.second) arguments
+
+
 varsFromFieldOption : FieldOption variableSource -> List (Variable variableSource)
 varsFromFieldOption fieldOption =
     case fieldOption of
@@ -382,10 +445,10 @@ varsFromFieldOption fieldOption =
             []
 
         FieldArgs arguments ->
-            List.concatMap (Value.getVariables << Tuple.second) arguments
+            varsFromArguments arguments
 
         FieldDirective _ arguments ->
-            List.concatMap (Value.getVariables << Tuple.second) arguments
+            varsFromArguments arguments
 
 
 int : Spec NonNull IntType variableSource Int
@@ -452,6 +515,7 @@ enumWithFallback fallbackDecoder labelledValues =
             )
             (always decoder)
             []
+            []
 
 
 decoderFromEnumLabel : (String -> Decoder a) -> List ( String, a ) -> String -> Decoder a
@@ -474,7 +538,7 @@ decoderFromEnumLabel fallbackDecoder labelledValues =
 list :
     Spec itemNullability itemType variableSource result
     -> Spec NonNull (ListType itemNullability itemType) variableSource (List result)
-list (Spec itemType decoder vars) =
+list (Spec itemType decoder vars fragments) =
     Spec
         (SpecifiedType
             { nullability = nonNullFlag
@@ -485,19 +549,21 @@ list (Spec itemType decoder vars) =
         )
         (Decode.list << decoder)
         vars
+        fragments
 
 
 nullable : Spec NonNull coreType variableSource result -> Spec Nullable coreType variableSource (Maybe result)
-nullable (Spec sourceType decoder vars) =
+nullable (Spec sourceType decoder vars fragments) =
     case sourceType of
         SpecifiedType typeInfo ->
             Spec
                 (SpecifiedType { typeInfo | nullability = nullableFlag })
                 (Decode.nullable << decoder)
                 vars
+                fragments
 
         AnyType ->
-            Spec AnyType (Decode.nullable << decoder) vars
+            Spec AnyType (Decode.nullable << decoder) vars fragments
 
 
 emptyObjectSpecifiedType : SourceType NonNull ObjectType
@@ -512,12 +578,12 @@ emptyObjectSpecifiedType =
 
 produce : result -> Spec nullability coreType variableSource result
 produce x =
-    Spec AnyType (always (Decode.succeed x)) []
+    Spec AnyType (always (Decode.succeed x)) [] []
 
 
 map : (a -> b) -> Spec nullability coreType variableSource a -> Spec nullability coreType variableSource b
-map f (Spec sourceType decoder vars) =
-    Spec sourceType (decoder >> Decode.map f) vars
+map f (Spec sourceType decoder vars fragments) =
+    Spec sourceType (decoder >> Decode.map f) vars fragments
 
 
 map2 :
@@ -525,7 +591,7 @@ map2 :
     -> Spec nullability coreType variableSource a
     -> Spec nullability coreType variableSource b
     -> Spec nullability coreType variableSource c
-map2 f (Spec sourceTypeA decoderA varsA) (Spec sourceTypeB decoderB varsB) =
+map2 f (Spec sourceTypeA decoderA varsA fragmentsA) (Spec sourceTypeB decoderB varsB fragmentsB) =
     let
         joinedSourceType =
             join sourceTypeA sourceTypeB
@@ -535,8 +601,11 @@ map2 f (Spec sourceTypeA decoderA varsA) (Spec sourceTypeB decoderB varsB) =
 
         mergedVariables =
             mergeVariables varsA varsB
+
+        mergedFragments =
+            mergeFragments fragmentsA fragmentsB
     in
-        Spec joinedSourceType joinedDecoder mergedVariables
+        Spec joinedSourceType joinedDecoder mergedVariables mergedFragments
 
 
 map3 :
@@ -720,7 +789,7 @@ selectionSetFromSourceType sourceType =
 
 
 selectionSetFromSpec : Spec nullability coreType variableSource result -> AST.SelectionSet
-selectionSetFromSpec (Spec sourceType _ _) =
+selectionSetFromSpec (Spec sourceType _ _ _) =
     selectionSetFromSourceType sourceType
 
 
@@ -741,12 +810,13 @@ primitiveSpec coreType decoder =
         )
         (always decoder)
         []
+        []
 
 
 variableDefinitionsAST :
     Spec nullability coreType variableSource result
     -> List AST.VariableDefinition
-variableDefinitionsAST (Spec _ _ vars) =
+variableDefinitionsAST (Spec _ _ vars _) =
     List.map Variable.toDefinitionAST vars
 
 
@@ -789,6 +859,23 @@ fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     }
 
 
+varsFromDirectives : List ( String, List ( String, Value.Argument variableSource ) ) -> List (Variable variableSource)
+varsFromDirectives =
+    List.concatMap (Tuple.second >> varsFromArguments)
+
+
+fragmentVariables : Fragment variableSource result -> List (Variable variableSource)
+fragmentVariables (Fragment { directives, spec }) =
+    let
+        directiveVariables =
+            varsFromDirectives directives
+
+        (Spec _ _ specVariables _) =
+            spec
+    in
+        mergeVariables directiveVariables specVariables
+
+
 documentAST : Document operationType variableSource result -> AST.Document
 documentAST (Document { ast }) =
     ast
@@ -816,14 +903,14 @@ documentVariables (Document { operation }) =
         (Operation { spec }) =
             operation
 
-        (Spec _ _ vars) =
+        (Spec _ _ vars _) =
             spec
     in
         vars
 
 
 specDecoder : Spec nullability coreType variableSource result -> Decoder result
-specDecoder (Spec sourceType decoderFromSelectionSet _) =
+specDecoder (Spec sourceType decoderFromSelectionSet _ _) =
     sourceType
         |> selectionSetFromSourceType
         |> decoderFromSelectionSet
@@ -840,4 +927,13 @@ mergeVariables varsA varsB =
         ++ (varsB
                 |> List.filter
                     (\var -> not (List.any (equalVariableDefinitionAST var) varsA))
+           )
+
+
+mergeFragments : List AST.FragmentDefinitionInfo -> List AST.FragmentDefinitionInfo -> List AST.FragmentDefinitionInfo
+mergeFragments fragmentsA fragmentsB =
+    fragmentsA
+        ++ (fragmentsB
+                |> List.filter
+                    (\fragment -> not (List.any ((==) fragment) fragmentsA))
            )

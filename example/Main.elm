@@ -11,7 +11,7 @@ import Task exposing (Task)
 type alias FilmSummary =
     { title : Maybe String
     , someCharacterNames : List (Maybe String)
-    , somePlanetNames : List (Maybe String)
+    , somePlanetNames : Maybe (List (Maybe String))
     }
 
 
@@ -21,7 +21,17 @@ connectionNodes spec =
 
 
 {-| The definition of `starWarsRequest` builds up a query request value that
-will later be encoded into the following GraphQL query to send to the server:
+will later be encoded into the following GraphQL query document:
+
+fragment filmPlanetsFragment on Film {
+  planetConnection(first: $pageSize) {
+    edges {
+      node {
+        name
+      }
+    }
+  }
+}
 
 query ($filmID: ID!, $pageSize: Int = 3) {
   film(filmID: $filmID) {
@@ -33,6 +43,7 @@ query ($filmID: ID!, $pageSize: Int = 3) {
         }
       }
     }
+    ...filmPlanetsFragment
   }
 }
 
@@ -47,6 +58,14 @@ starWarsRequest =
 
         pageSize =
             Var.optional "pageSize" .pageSize (Var.nullable Var.int) (Just 3)
+
+        planetsFragment =
+            fragment "filmPlanetsFragment"
+                (onType "Film")
+                (field "planetConnection"
+                    [ args [ ( "first", Value.variable pageSize ) ] ]
+                    (connectionNodes (field "name" [] (nullable string)))
+                )
     in
         field "film"
             [ args [ ( "filmID", Value.variable filmID ) ] ]
@@ -56,10 +75,7 @@ starWarsRequest =
                     [ args [ ( "first", Value.variable pageSize ) ] ]
                     (connectionNodes (field "name" [] (nullable string)))
                 )
-                (field "planetConnection"
-                    [ args [ ( "first", Value.variable pageSize ) ] ]
-                    (connectionNodes (field "name" [] (nullable string)))
-                )
+                (fragmentSpread planetsFragment [])
             )
             |> queryDocument
             |> request
