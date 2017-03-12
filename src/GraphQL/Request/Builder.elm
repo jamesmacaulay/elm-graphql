@@ -829,6 +829,15 @@ specDecoder (Spec sourceType decoderFromSelectionSet _) =
         |> decoderFromSelectionSet
 
 
+equalVariableDefinitionAST : Variable a -> Variable a -> Bool
+equalVariableDefinitionAST varA varB =
+    Variable.toDefinitionAST varA == Variable.toDefinitionAST varB
+
+
 mergeVariables : List (Variable source) -> List (Variable source) -> List (Variable source)
 mergeVariables varsA varsB =
-    varsA ++ varsB
+    varsA
+        ++ (varsB
+                |> List.filter
+                    (\var -> not (List.any (equalVariableDefinitionAST var) varsA))
+           )

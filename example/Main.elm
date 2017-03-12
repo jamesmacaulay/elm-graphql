@@ -11,6 +11,7 @@ import Task exposing (Task)
 type alias FilmSummary =
     { title : Maybe String
     , someCharacterNames : List (Maybe String)
+    , somePlanetNames : List (Maybe String)
     }
 
 
@@ -49,9 +50,13 @@ starWarsRequest =
     in
         field "film"
             [ args [ ( "filmID", Value.variable filmID ) ] ]
-            (map2 FilmSummary
+            (map3 FilmSummary
                 (field "title" [] (nullable string))
                 (field "characterConnection"
+                    [ args [ ( "first", Value.variable pageSize ) ] ]
+                    (connectionNodes (field "name" [] (nullable string)))
+                )
+                (field "planetConnection"
                     [ args [ ( "first", Value.variable pageSize ) ] ]
                     (connectionNodes (field "name" [] (nullable string)))
                 )
