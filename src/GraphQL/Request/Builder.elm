@@ -58,50 +58,51 @@ import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Util as Util
 import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 import GraphQL.Response as Response
 import Dict exposing (Dict)
 import Set exposing (Set)
 
 
-type Spec nullability coreType result
-    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result)
+type Spec nullability coreType variableSource result
+    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource))
 
 
 type alias TypeCondition =
     AST.TypeCondition
 
 
-type Fragment result
+type Fragment variableSource result
     = Fragment
         { name : String
         , typeCondition : TypeCondition
-        , directives : List ( String, List ( String, Value.Argument ) )
-        , spec : Spec NonNull ObjectType result
+        , directives : List ( String, List ( String, Value.Argument variableSource ) )
+        , spec : Spec NonNull ObjectType variableSource result
         }
 
 
-type Request operationType result
+type Request operationType variableSource result
     = Request
-        { document : Document operationType result
-        , variableValues : List ( String, Value.Constant )
+        { document : Document operationType variableSource result
+        , variableSource : variableSource
+        , variableValues : List ( String, AST.ConstantValue )
         }
 
 
-type Document operationType result
+type Document operationType variableSource result
     = Document
-        { operation : Operation operationType result
+        { operation : Operation operationType variableSource result
         , ast : AST.Document
         , serialized : String
         }
 
 
-type Operation operationType result
+type Operation operationType variableSource result
     = Operation
         { operationType : OperationType operationType
         , name : Maybe String
-        , variableDefinitions : List ( String, TypeRef.TypeRef, Maybe Value.Constant )
-        , directives : List ( String, List ( String, Value.Argument ) )
-        , spec : Spec NonNull ObjectType result
+        , directives : List ( String, List ( String, Value.Argument variableSource ) )
+        , spec : Spec NonNull ObjectType variableSource result
         }
 
 
@@ -186,42 +187,46 @@ type ObjectType
     = ObjectType
 
 
-type FieldOption
+type FieldOption variableSource
     = FieldAlias String
-    | FieldArgs (List ( String, Value.Argument ))
-    | FieldDirective String (List ( String, Value.Argument ))
+    | FieldArgs (List ( String, Value.Argument variableSource ))
+    | FieldDirective String (List ( String, Value.Argument variableSource ))
 
 
 request :
-    List ( String, Value.Constant )
-    -> Document operationType result
-    -> Request operationType result
-request variableValues document =
-    Request { document = document, variableValues = variableValues }
+    variableSource
+    -> Document operationType variableSource result
+    -> Request operationType variableSource result
+request variableSource document =
+    Request
+        { document = document
+        , variableSource = variableSource
+        , variableValues = (documentVariables document |> Variable.extractValuesFrom variableSource)
+        }
 
 
-requestBody : Request operationType result -> String
+requestBody : Request operationType variableSource result -> String
 requestBody (Request { document }) =
     documentString document
 
 
-requestBodyAST : Request operationType result -> AST.Document
+requestBodyAST : Request operationType variableSource result -> AST.Document
 requestBodyAST (Request { document }) =
     documentAST document
 
 
-requestVariableValues : Request operationType result -> List ( String, Value.Constant )
+requestVariableValues : Request operationType variableSource result -> List ( String, AST.ConstantValue )
 requestVariableValues (Request { variableValues }) =
     variableValues
 
 
-responseDecoder : Request operationType result -> Decoder result
+responseDecoder : Request operationType variableSource result -> Decoder result
 responseDecoder (Request { document }) =
     documentResponseDecoder document
         |> Response.successDecoder
 
 
-document : Operation operationType result -> Document operationType result
+document : Operation operationType variableSource result -> Document operationType variableSource result
 document operation =
     let
         ast =
@@ -236,15 +241,13 @@ document operation =
 
 
 queryDocument :
-    List ( String, TypeRef.TypeRef, Maybe Value.Constant )
-    -> Spec NonNull ObjectType result
-    -> Document Query result
-queryDocument variableDefinitions spec =
+    Spec NonNull ObjectType variableSource result
+    -> Document Query variableSource result
+queryDocument spec =
     document
         (Operation
             { operationType = queryOperationType
             , name = Nothing
-            , variableDefinitions = variableDefinitions
             , directives = []
             , spec = spec
             }
@@ -257,15 +260,13 @@ queryOperationType =
 
 
 mutationDocument :
-    List ( String, TypeRef.TypeRef, Maybe Value.Constant )
-    -> Spec NonNull ObjectType result
-    -> Document Mutation result
-mutationDocument variableDefinitions spec =
+    Spec NonNull ObjectType variableSource result
+    -> Document Mutation variableSource result
+mutationDocument spec =
     document
         (Operation
             { operationType = mutationOperationType
             , name = Nothing
-            , variableDefinitions = variableDefinitions
             , directives = []
             , spec = spec
             }
@@ -280,8 +281,8 @@ mutationOperationType =
 fragment :
     String
     -> TypeCondition
-    -> Spec NonNull ObjectType result
-    -> Fragment result
+    -> Spec NonNull ObjectType variableSource result
+    -> Fragment variableSource result
 fragment name typeCondition spec =
     Fragment
         { name = name
@@ -298,17 +299,17 @@ onType =
 
 object :
     (fieldValue -> result)
-    -> Spec NonNull ObjectType (fieldValue -> result)
+    -> Spec NonNull ObjectType variableSource (fieldValue -> result)
 object ctr =
-    Spec emptyObjectSpecifiedType (always (Decode.succeed ctr))
+    Spec emptyObjectSpecifiedType (always (Decode.succeed ctr)) []
 
 
 withField :
     String
-    -> List FieldOption
-    -> Spec nullability coreType a
-    -> Spec NonNull ObjectType (a -> b)
-    -> Spec NonNull ObjectType b
+    -> List (FieldOption variableSource)
+    -> Spec nullability coreType variableSource a
+    -> Spec NonNull ObjectType variableSource (a -> b)
+    -> Spec NonNull ObjectType variableSource b
 withField name fieldOptions spec fSpec =
     fSpec
         |> andMap (field name fieldOptions spec)
@@ -316,10 +317,10 @@ withField name fieldOptions spec fSpec =
 
 field :
     String
-    -> List FieldOption
-    -> Spec nullability coreType result
-    -> Spec NonNull ObjectType result
-field name fieldOptions (Spec sourceType fieldDecoder) =
+    -> List (FieldOption variableSource)
+    -> Spec nullability coreType variableSource result
+    -> Spec NonNull ObjectType variableSource result
+field name fieldOptions (Spec sourceType fieldDecoder fieldVars) =
     let
         astFieldInfo =
             fieldOptions
@@ -343,6 +344,9 @@ field name fieldOptions (Spec sourceType fieldDecoder) =
                     Util.responseKey fieldInSelectionSet
             in
                 Decode.field responseKey (fieldDecoder fieldInSelectionSet.selectionSet)
+
+        vars =
+            mergeVariables (List.concatMap varsFromFieldOption fieldOptions) fieldVars
     in
         Spec
             (SpecifiedType
@@ -353,49 +357,63 @@ field name fieldOptions (Spec sourceType fieldDecoder) =
                 }
             )
             decoder
+            vars
 
 
-alias : String -> FieldOption
+alias : String -> FieldOption variableSource
 alias =
     FieldAlias
 
 
-args : List ( String, Value.Argument ) -> FieldOption
+args : List ( String, Value.Argument variableSource ) -> FieldOption variableSource
 args =
     FieldArgs
 
 
-directive : String -> List ( String, Value.Argument ) -> FieldOption
+directive : String -> List ( String, Value.Argument variableSource ) -> FieldOption variableSource
 directive =
     FieldDirective
 
 
-int : Spec NonNull IntType Int
+varsFromFieldOption : FieldOption variableSource -> List (Variable variableSource)
+varsFromFieldOption fieldOption =
+    case fieldOption of
+        FieldAlias _ ->
+            []
+
+        FieldArgs arguments ->
+            List.concatMap (Value.getVariables << Tuple.second) arguments
+
+        FieldDirective _ arguments ->
+            List.concatMap (Value.getVariables << Tuple.second) arguments
+
+
+int : Spec NonNull IntType variableSource Int
 int =
     primitiveSpec IntType Decode.int
 
 
-float : Spec NonNull FloatType Float
+float : Spec NonNull FloatType variableSource Float
 float =
     primitiveSpec FloatType Decode.float
 
 
-string : Spec NonNull StringType String
+string : Spec NonNull StringType variableSource String
 string =
     primitiveSpec StringType Decode.string
 
 
-bool : Spec NonNull BooleanType Bool
+bool : Spec NonNull BooleanType variableSource Bool
 bool =
     primitiveSpec BooleanType Decode.bool
 
 
-id : Spec NonNull IdType String
+id : Spec NonNull IdType variableSource String
 id =
     primitiveSpec IdType Decode.string
 
 
-enum : List ( String, a ) -> Spec NonNull EnumType a
+enum : List ( String, a ) -> Spec NonNull EnumType variableSource a
 enum =
     enumWithFallback
         (\label ->
@@ -403,7 +421,7 @@ enum =
         )
 
 
-enumWithDefault : (String -> a) -> List ( String, a ) -> Spec NonNull EnumType a
+enumWithDefault : (String -> a) -> List ( String, a ) -> Spec NonNull EnumType variableSource a
 enumWithDefault ctr =
     enumWithFallback
         (\label ->
@@ -411,7 +429,7 @@ enumWithDefault ctr =
         )
 
 
-enumWithFallback : (String -> Decoder a) -> List ( String, a ) -> Spec NonNull EnumType a
+enumWithFallback : (String -> Decoder a) -> List ( String, a ) -> Spec NonNull EnumType variableSource a
 enumWithFallback fallbackDecoder labelledValues =
     let
         decoderFromLabel =
@@ -433,6 +451,7 @@ enumWithFallback fallbackDecoder labelledValues =
                 }
             )
             (always decoder)
+            []
 
 
 decoderFromEnumLabel : (String -> Decoder a) -> List ( String, a ) -> String -> Decoder a
@@ -453,9 +472,9 @@ decoderFromEnumLabel fallbackDecoder labelledValues =
 
 
 list :
-    Spec itemNullability itemType result
-    -> Spec NonNull (ListType itemNullability itemType) (List result)
-list (Spec itemType decoder) =
+    Spec itemNullability itemType variableSource result
+    -> Spec NonNull (ListType itemNullability itemType) variableSource (List result)
+list (Spec itemType decoder vars) =
     Spec
         (SpecifiedType
             { nullability = nonNullFlag
@@ -465,18 +484,20 @@ list (Spec itemType decoder) =
             }
         )
         (Decode.list << decoder)
+        vars
 
 
-nullable : Spec NonNull coreType result -> Spec Nullable coreType (Maybe result)
-nullable (Spec sourceType decoder) =
+nullable : Spec NonNull coreType variableSource result -> Spec Nullable coreType variableSource (Maybe result)
+nullable (Spec sourceType decoder vars) =
     case sourceType of
         SpecifiedType typeInfo ->
             Spec
                 (SpecifiedType { typeInfo | nullability = nullableFlag })
                 (Decode.nullable << decoder)
+                vars
 
         AnyType ->
-            Spec AnyType (Decode.nullable << decoder)
+            Spec AnyType (Decode.nullable << decoder) vars
 
 
 emptyObjectSpecifiedType : SourceType NonNull ObjectType
@@ -489,38 +510,41 @@ emptyObjectSpecifiedType =
         }
 
 
-produce : result -> Spec nullability coreType result
+produce : result -> Spec nullability coreType variableSource result
 produce x =
-    Spec AnyType (always (Decode.succeed x))
+    Spec AnyType (always (Decode.succeed x)) []
 
 
-map : (a -> b) -> Spec nullability coreType a -> Spec nullability coreType b
-map f (Spec sourceType decoder) =
-    Spec sourceType (decoder >> Decode.map f)
+map : (a -> b) -> Spec nullability coreType variableSource a -> Spec nullability coreType variableSource b
+map f (Spec sourceType decoder vars) =
+    Spec sourceType (decoder >> Decode.map f) vars
 
 
 map2 :
     (a -> b -> c)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-map2 f (Spec sourceTypeA decoderA) (Spec sourceTypeB decoderB) =
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+map2 f (Spec sourceTypeA decoderA varsA) (Spec sourceTypeB decoderB varsB) =
     let
         joinedSourceType =
             join sourceTypeA sourceTypeB
 
         joinedDecoder selectionSet =
             Decode.map2 f (decoderA selectionSet) (decoderB selectionSet)
+
+        mergedVariables =
+            mergeVariables varsA varsB
     in
-        Spec joinedSourceType joinedDecoder
+        Spec joinedSourceType joinedDecoder mergedVariables
 
 
 map3 :
     (a -> b -> c -> d)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
 map3 f s1 s2 s3 =
     map f s1
         |> andMap s2
@@ -529,11 +553,11 @@ map3 f s1 s2 s3 =
 
 map4 :
     (a -> b -> c -> d -> e)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
-    -> Spec nullability coreType e
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
+    -> Spec nullability coreType variableSource e
 map4 f s1 s2 s3 s4 =
     map f s1
         |> andMap s2
@@ -543,12 +567,12 @@ map4 f s1 s2 s3 s4 =
 
 map5 :
     (a -> b -> c -> d -> e -> f)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
-    -> Spec nullability coreType e
-    -> Spec nullability coreType f
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
+    -> Spec nullability coreType variableSource e
+    -> Spec nullability coreType variableSource f
 map5 f s1 s2 s3 s4 s5 =
     map f s1
         |> andMap s2
@@ -559,13 +583,13 @@ map5 f s1 s2 s3 s4 s5 =
 
 map6 :
     (a -> b -> c -> d -> e -> f -> g)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
-    -> Spec nullability coreType e
-    -> Spec nullability coreType f
-    -> Spec nullability coreType g
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
+    -> Spec nullability coreType variableSource e
+    -> Spec nullability coreType variableSource f
+    -> Spec nullability coreType variableSource g
 map6 f s1 s2 s3 s4 s5 s6 =
     map f s1
         |> andMap s2
@@ -577,14 +601,14 @@ map6 f s1 s2 s3 s4 s5 s6 =
 
 map7 :
     (a -> b -> c -> d -> e -> f -> g -> h)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
-    -> Spec nullability coreType e
-    -> Spec nullability coreType f
-    -> Spec nullability coreType g
-    -> Spec nullability coreType h
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
+    -> Spec nullability coreType variableSource e
+    -> Spec nullability coreType variableSource f
+    -> Spec nullability coreType variableSource g
+    -> Spec nullability coreType variableSource h
 map7 f s1 s2 s3 s4 s5 s6 s7 =
     map f s1
         |> andMap s2
@@ -597,15 +621,15 @@ map7 f s1 s2 s3 s4 s5 s6 s7 =
 
 map8 :
     (a -> b -> c -> d -> e -> f -> g -> h -> i)
-    -> Spec nullability coreType a
-    -> Spec nullability coreType b
-    -> Spec nullability coreType c
-    -> Spec nullability coreType d
-    -> Spec nullability coreType e
-    -> Spec nullability coreType f
-    -> Spec nullability coreType g
-    -> Spec nullability coreType h
-    -> Spec nullability coreType i
+    -> Spec nullability coreType variableSource a
+    -> Spec nullability coreType variableSource b
+    -> Spec nullability coreType variableSource c
+    -> Spec nullability coreType variableSource d
+    -> Spec nullability coreType variableSource e
+    -> Spec nullability coreType variableSource f
+    -> Spec nullability coreType variableSource g
+    -> Spec nullability coreType variableSource h
+    -> Spec nullability coreType variableSource i
 map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
     map f s1
         |> andMap s2
@@ -617,19 +641,23 @@ map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
         |> andMap s8
 
 
-andMap : Spec nullability coreType a -> Spec nullability coreType (a -> b) -> Spec nullability coreType b
+andMap : Spec nullability coreType variableSource a -> Spec nullability coreType variableSource (a -> b) -> Spec nullability coreType variableSource b
 andMap specA specF =
     map2 (<|) specF specA
 
 
-applyFieldOption : FieldOption -> AST.FieldInfo -> AST.FieldInfo
+applyFieldOption : FieldOption variableSource -> AST.FieldInfo -> AST.FieldInfo
 applyFieldOption fieldOption field =
     case fieldOption of
         FieldAlias name ->
             { field | alias = Just name }
 
         FieldArgs arguments ->
-            { field | arguments = field.arguments ++ arguments }
+            { field
+                | arguments =
+                    field.arguments
+                        ++ List.map (Tuple.mapSecond Value.getAST) arguments
+            }
 
         FieldDirective name arguments ->
             { field
@@ -637,7 +665,7 @@ applyFieldOption fieldOption field =
                     field.directives
                         ++ [ AST.Directive
                                 { name = name
-                                , arguments = arguments
+                                , arguments = List.map (Tuple.mapSecond Value.getAST) arguments
                                 }
                            ]
             }
@@ -691,8 +719,8 @@ selectionSetFromSourceType sourceType =
             emptySelectionSet
 
 
-selectionSetFromSpec : Spec nullability coreType result -> AST.SelectionSet
-selectionSetFromSpec (Spec sourceType _) =
+selectionSetFromSpec : Spec nullability coreType variableSource result -> AST.SelectionSet
+selectionSetFromSpec (Spec sourceType _ _) =
     selectionSetFromSourceType sourceType
 
 
@@ -701,7 +729,7 @@ emptySelectionSet =
     AST.SelectionSet []
 
 
-primitiveSpec : coreType -> Decoder result -> Spec NonNull coreType result
+primitiveSpec : coreType -> Decoder result -> Spec NonNull coreType variableSource result
 primitiveSpec coreType decoder =
     Spec
         (SpecifiedType
@@ -712,26 +740,23 @@ primitiveSpec coreType decoder =
             }
         )
         (always decoder)
+        []
 
 
-variableDefinitionAST :
-    ( String, TypeRef.TypeRef, Maybe Value.Constant )
-    -> AST.VariableDefinition
-variableDefinitionAST ( name, typeRef, maybeDefaultValue ) =
-    AST.VariableDefinition
-        { name = name
-        , variableType = typeRef
-        , defaultValue = maybeDefaultValue
-        }
+variableDefinitionsAST :
+    Spec nullability coreType variableSource result
+    -> List AST.VariableDefinition
+variableDefinitionsAST (Spec _ _ vars) =
+    List.map Variable.toDefinitionAST vars
 
 
 directiveAST :
-    ( String, List ( String, Value.Argument ) )
+    ( String, List ( String, Value.Argument a ) )
     -> AST.Directive
 directiveAST ( name, arguments ) =
     AST.Directive
         { name = name
-        , arguments = arguments
+        , arguments = List.map (Tuple.mapSecond Value.getAST) arguments
         }
 
 
@@ -745,17 +770,17 @@ operationTypeAST operationType =
             AST.Mutation
 
 
-operationAST : Operation operationType result -> AST.OperationDefinitionInfo
-operationAST (Operation { operationType, name, variableDefinitions, directives, spec }) =
+operationAST : Operation operationType variableSource result -> AST.OperationDefinitionInfo
+operationAST (Operation { operationType, name, directives, spec }) =
     { operationType = operationTypeAST operationType
     , name = name
-    , variableDefinitions = List.map variableDefinitionAST variableDefinitions
+    , variableDefinitions = variableDefinitionsAST spec
     , directives = List.map directiveAST directives
     , selectionSet = selectionSetFromSpec spec
     }
 
 
-fragmentAST : Fragment result -> AST.FragmentDefinitionInfo
+fragmentAST : Fragment variableSource result -> AST.FragmentDefinitionInfo
 fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     { name = name
     , typeCondition = typeCondition
@@ -764,18 +789,18 @@ fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     }
 
 
-documentAST : Document operationType result -> AST.Document
+documentAST : Document operationType variableSource result -> AST.Document
 documentAST (Document { ast }) =
     ast
 
 
-documentString : Document operationType result -> String
+documentString : Document operationType variableSource result -> String
 documentString (Document { serialized }) =
     serialized
 
 
 documentResponseDecoder :
-    Document operationType result
+    Document operationType variableSource result
     -> Decoder result
 documentResponseDecoder (Document { operation }) =
     let
@@ -785,8 +810,25 @@ documentResponseDecoder (Document { operation }) =
         specDecoder spec
 
 
-specDecoder : Spec nullability coreType result -> Decoder result
-specDecoder (Spec sourceType decoderFromSelectionSet) =
+documentVariables : Document operationType variableSource result -> List (Variable variableSource)
+documentVariables (Document { operation }) =
+    let
+        (Operation { spec }) =
+            operation
+
+        (Spec _ _ vars) =
+            spec
+    in
+        vars
+
+
+specDecoder : Spec nullability coreType variableSource result -> Decoder result
+specDecoder (Spec sourceType decoderFromSelectionSet _) =
     sourceType
         |> selectionSetFromSourceType
         |> decoderFromSelectionSet
+
+
+mergeVariables : List (Variable source) -> List (Variable source) -> List (Variable source)
+mergeVariables varsA varsB =
+    varsA ++ varsB

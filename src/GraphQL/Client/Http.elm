@@ -7,7 +7,7 @@ module GraphQL.Client.Http
         )
 
 import GraphQL.Request.Builder as Builder
-import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
 import GraphQL.Response as Response
 import Json.Decode
@@ -22,7 +22,7 @@ type Error
     | GraphQLError (List Response.Error)
 
 
-variableValuesToJson : List ( String, Value.Constant ) -> Maybe Json.Encode.Value
+variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Json.Encode.Value
 variableValuesToJson kvPairs =
     if List.isEmpty kvPairs then
         Nothing
@@ -35,7 +35,7 @@ variableValuesToJson kvPairs =
 
 send :
     String
-    -> Builder.Request operationType result
+    -> Builder.Request operationType variableSource result
     -> Task Error result
 send url request =
     let
@@ -55,7 +55,7 @@ send url request =
 
 sendQuery :
     String
-    -> Builder.Request Builder.Query result
+    -> Builder.Request Builder.Query variableSource result
     -> Task Error result
 sendQuery =
     send
@@ -63,7 +63,7 @@ sendQuery =
 
 sendMutation :
     String
-    -> Builder.Request Builder.Mutation result
+    -> Builder.Request Builder.Mutation variableSource result
     -> Task Error result
 sendMutation =
     send

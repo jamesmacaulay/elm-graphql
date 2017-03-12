@@ -4,6 +4,7 @@ import Test exposing (..)
 import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Variable as Variable
 import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Response as Response
 import Json.Decode as Decode
@@ -11,7 +12,7 @@ import Json.Decode as Decode
 
 testDecoder :
     String
-    -> Request operationType result
+    -> Request operationType variableSource result
     -> String
     -> result
     -> Test.Test
@@ -49,11 +50,17 @@ type ExampleRole
     | ExampleMemberRole
 
 
-exampleQueryRequest : Request Query ExampleQueryRoot
+type alias ExampleVariables =
+    { userId : String
+    , includeProjects : Maybe (Maybe Bool)
+    }
+
+
+exampleQueryRequest : Request Query ExampleVariables ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
         |> withField "user"
-            [ args [ ( "id", Value.variable "userId" ) ] ]
+            [ args [ ( "id", Value.variable (Variable.required "userId" .userId Variable.string) ) ] ]
             (object ExampleQueryUser
                 |> withField "id" [] id
                 |> withField "name" [] string
@@ -66,7 +73,7 @@ exampleQueryRequest =
                     )
                 |> withField "projects"
                     [ args [ ( "first", Value.int 1 ) ]
-                    , directive "include" [ ( "if", Value.variable "includeProjects" ) ]
+                    , directive "include" [ ( "if", Value.variable (Variable.optional "includeProjects" .includeProjects (Variable.nullable Variable.bool) (Just False)) ) ]
                     ]
                     (list
                         (object ExampleQueryProject
@@ -77,13 +84,10 @@ exampleQueryRequest =
                     )
             )
         |> queryDocument
-            [ ( "userId", TypeRef.string, Nothing )
-            , ( "includeProjects", TypeRef.nullable TypeRef.boolean, Just Value.false )
-            ]
         |> request
-            [ ( "userId", Value.string "123" )
-            , ( "includeProjects", Value.bool True )
-            ]
+            { userId = "123"
+            , includeProjects = Just (Just True)
+            }
 
 
 exampleSuccessResponse : String
@@ -146,8 +150,8 @@ tests =
             exampleQueryRequest
                 |> requestVariableValues
                 |> Expect.equal
-                    [ ( "userId", Value.string "123" )
-                    , ( "includeProjects", Value.bool True )
+                    [ ( "userId", Value.getAST (Value.string "123") )
+                    , ( "includeProjects", Value.getAST (Value.bool True) )
                     ]
     , test "decoding a successful response of a request" <|
         \() ->

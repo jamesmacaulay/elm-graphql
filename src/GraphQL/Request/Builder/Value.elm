@@ -13,68 +13,85 @@ module GraphQL.Request.Builder.Value
         , null
         , object
         , list
+        , getAST
+        , getVariables
         )
 
 import GraphQL.Request.Document.AST as AST
+import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 
 
-type alias Value a =
-    AST.Value a
+type Value variableConstraint variableSource
+    = Value (AST.Value variableConstraint) (List (Variable variableSource))
 
 
 type alias Constant =
-    AST.ConstantValue
+    Value Never Never
 
 
-type alias Argument =
-    AST.ArgumentValue
+type alias Argument variableSource =
+    Value () variableSource
 
 
-variable : String -> Argument
-variable =
-    AST.VariableValue ()
+variable : Variable source -> Argument source
+variable var =
+    Value (AST.VariableValue () (Variable.name var)) [ var ]
 
 
-int : Int -> Value a
-int =
-    AST.IntValue
+int : Int -> Value a b
+int x =
+    Value (AST.IntValue x) []
 
 
-float : Float -> Value a
-float =
-    AST.FloatValue
+float : Float -> Value a b
+float x =
+    Value (AST.FloatValue x) []
 
 
-string : String -> Value a
-string =
-    AST.StringValue
+string : String -> Value a b
+string x =
+    Value (AST.StringValue x) []
 
 
-bool : Bool -> Value a
-bool =
-    AST.BooleanValue
+bool : Bool -> Value a b
+bool x =
+    Value (AST.BooleanValue x) []
 
 
-true : Value a
+true : Value a b
 true =
-    AST.BooleanValue True
+    bool True
 
 
-false : Value a
+false : Value a b
 false =
-    AST.BooleanValue False
+    bool False
 
 
-null : Value a
+null : Value a b
 null =
-    AST.NullValue
+    Value AST.NullValue []
 
 
-object : List ( String, Value a ) -> Value a
-object =
-    AST.ObjectValue
+object : List ( String, Value a b ) -> Value a b
+object pairs =
+    Value
+        (AST.ObjectValue (pairs |> List.map (\( k, Value ast _ ) -> ( k, ast ))))
+        (pairs |> List.concatMap (\( _, Value _ vars ) -> vars))
 
 
-list : List (Value a) -> Value a
-list =
-    AST.ListValue
+list : List (Value a b) -> Value a b
+list values =
+    Value
+        (AST.ListValue (values |> List.map (\(Value ast _) -> ast)))
+        (values |> List.concatMap (\(Value _ vars) -> vars))
+
+
+getAST : Value a b -> AST.Value a
+getAST (Value ast _) =
+    ast
+
+
+getVariables : Value a b -> List (Variable b)
+getVariables (Value _ vars) =
+    vars
