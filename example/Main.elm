@@ -19,13 +19,13 @@ connectionNodes spec =
     field "edges" [] (list (field "node" [] spec))
 
 
-{-| The definition of `starWarsQuery` builds up a decodable query object that
+{-| The definition of `starWarsRequest` builds up a query request value that
 will later be encoded into the following GraphQL query to send to the server:
 
-{
-  film(filmID: 1) {
+query ($filmID: ID!, $pageSize: Int = 3) {
+  film(filmID: $filmID) {
     title
-    characterConnection(first: 3) {
+    characterConnection(first: $pageSize) {
       edges {
         node {
           name
@@ -35,24 +35,24 @@ will later be encoded into the following GraphQL query to send to the server:
   }
 }
 
-The same decodable query value is then also used to decode the response into a
-`FilmSummary`.
+This query is sent along with variable values extracted from the record passed
+to `request`, and the response is decoded into a `FilmSummary`.
 -}
 starWarsRequest : Request Query { filmID : String, pageSize : Maybe Int } FilmSummary
 starWarsRequest =
     let
-        filmIDVar =
+        filmID =
             Var.required "filmID" .filmID Var.id
 
-        pageSizeVar =
+        pageSize =
             Var.optional "pageSize" .pageSize (Var.nullable Var.int) (Just 3)
     in
         field "film"
-            [ args [ ( "filmID", Value.variable filmIDVar ) ] ]
+            [ args [ ( "filmID", Value.variable filmID ) ] ]
             (map2 FilmSummary
                 (field "title" [] (nullable string))
                 (field "characterConnection"
-                    [ args [ ( "first", Value.variable pageSizeVar ) ] ]
+                    [ args [ ( "first", Value.variable pageSize ) ] ]
                     (connectionNodes (field "name" [] (nullable string)))
                 )
             )
@@ -75,14 +75,14 @@ type Msg
     = ReceiveQueryResponse StarWarsResponse
 
 
-queryRequest : Request Query variableSource a -> Task GraphQLClient.Error a
-queryRequest request =
+sendQueryRequest : Request Query variableSource a -> Task GraphQLClient.Error a
+sendQueryRequest request =
     GraphQLClient.sendQuery "/" request
 
 
 sendStarWarsQuery : Cmd Msg
 sendStarWarsQuery =
-    queryRequest starWarsRequest
+    sendQueryRequest starWarsRequest
         |> Task.attempt ReceiveQueryResponse
 
 
