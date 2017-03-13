@@ -15,7 +15,9 @@ type alias FilmSummary =
     }
 
 
-connectionNodes : Spec nullability coreType variableSource result -> Spec NonNull ObjectType variableSource (List result)
+connectionNodes :
+    Spec nullability coreType variableSource result
+    -> Spec NonNull ObjectType variableSource (List result)
 connectionNodes spec =
     field "edges" [] (list (field "node" [] spec))
 
