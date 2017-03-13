@@ -44,6 +44,8 @@ module GraphQL.Request.Builder
         , directive
         , withFragment
         , fragmentSpread
+        , withInlineFragment
+        , inlineFragment
         , map
         , map2
         , map3
@@ -59,7 +61,6 @@ import Json.Decode as Decode exposing (Decoder)
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Util as Util
-import GraphQL.Request.Builder.TypeRef as TypeRef
 import GraphQL.Request.Builder.Value as Value
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 import GraphQL.Response as Response
@@ -417,7 +418,7 @@ fragmentSpread ((Fragment { name, spec }) as fragment) directives =
         selectionSet =
             AST.SelectionSet [ AST.FragmentSpread astFragmentSpreadInfo ]
 
-        (Spec _ _ _ nestedFragments) =
+        (Spec _ decoder _ nestedFragments) =
             spec
     in
         Spec
@@ -428,9 +429,52 @@ fragmentSpread ((Fragment { name, spec }) as fragment) directives =
                 , selectionSet = selectionSet
                 }
             )
-            (always (Decode.maybe (specDecoder spec)))
+            (Decode.maybe << decoder)
             (mergeVariables (varsFromDirectives directives) (fragmentVariables fragment))
             (mergeFragments [ fragmentAST fragment ] nestedFragments)
+
+
+withInlineFragment :
+    Maybe TypeCondition
+    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> Spec NonNull ObjectType variableSource a
+    -> Spec NonNull ObjectType variableSource (Maybe a -> b)
+    -> Spec NonNull ObjectType variableSource b
+withInlineFragment maybeTypeCondition directives spec fSpec =
+    fSpec
+        |> andMap (inlineFragment maybeTypeCondition directives spec)
+
+
+inlineFragment :
+    Maybe TypeCondition
+    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> Spec NonNull ObjectType variableSource result
+    -> Spec NonNull ObjectType variableSource (Maybe result)
+inlineFragment maybeTypeCondition directives spec =
+    let
+        (Spec sourceType decoder vars fragments) =
+            spec
+
+        astInlineFragmentInfo =
+            { typeCondition = maybeTypeCondition
+            , directives = List.map directiveAST directives
+            , selectionSet = selectionSetFromSourceType sourceType
+            }
+
+        selectionSet =
+            AST.SelectionSet [ AST.InlineFragment astInlineFragmentInfo ]
+    in
+        Spec
+            (SpecifiedType
+                { nullability = nonNullFlag
+                , coreType = ObjectType
+                , join = always
+                , selectionSet = selectionSet
+                }
+            )
+            (Decode.maybe << decoder)
+            (mergeVariables (varsFromDirectives directives) vars)
+            fragments
 
 
 varsFromArguments : List ( String, Value.Argument variableSource ) -> List (Variable variableSource)

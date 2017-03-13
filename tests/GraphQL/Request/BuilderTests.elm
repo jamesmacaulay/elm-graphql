@@ -41,6 +41,7 @@ type alias ExampleQueryProject =
     { id : String
     , name : String
     , featured : Bool
+    , secrecyLevel : Maybe Int
     }
 
 
@@ -52,6 +53,7 @@ type ExampleRole
 type alias ExampleVariables =
     { userId : String
     , includeProjects : Maybe Bool
+    , secrecyUnits : Maybe String
     }
 
 
@@ -72,6 +74,15 @@ includeProjectsVar =
         (Just False)
 
 
+secrecyUnitsVar : Variable.Variable { v | secrecyUnits : Maybe String }
+secrecyUnitsVar =
+    Variable.optional
+        "secrecyUnits"
+        .secrecyUnits
+        (Variable.nullable Variable.string)
+        (Just "metric")
+
+
 exampleQueryUserProjectsFragment : Fragment ExampleVariables (List ExampleQueryProject)
 exampleQueryUserProjectsFragment =
     fragment "userProjectsFragment"
@@ -85,6 +96,12 @@ exampleQueryUserProjectsFragment =
                     |> withField "id" [] id
                     |> withField "name" [] string
                     |> withField "featured" [] bool
+                    |> withInlineFragment (Just (onType "SecretProject"))
+                        []
+                        (field "secrecyLevel"
+                            [ args [ ( "units", Value.variable secrecyUnitsVar ) ] ]
+                            int
+                        )
                 )
             )
         )
@@ -111,6 +128,7 @@ exampleQueryRequest =
         |> request
             { userId = "123"
             , includeProjects = Just True
+            , secrecyUnits = Nothing
             }
 
 
@@ -126,7 +144,8 @@ exampleSuccessResponse =
                 {
                     "id": "456",
                     "name": "Top Secret Project",
-                    "featured": false
+                    "featured": false,
+                    "secrecyLevel": 9000
                 }
             ]
         }
@@ -162,10 +181,13 @@ tests =
     id
     name
     featured
+    ... on SecretProject {
+      secrecyLevel(units: $secrecyUnits)
+    }
   }
 }
 
-query ($userId: String!, $includeProjects: Boolean = false) {
+query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: String = "metric") {
   user(id: $userId) {
     id
     name
@@ -196,6 +218,7 @@ query ($userId: String!, $includeProjects: Boolean = false) {
                                     [ { id = "456"
                                       , name = "Top Secret Project"
                                       , featured = False
+                                      , secrecyLevel = Just 9000
                                       }
                                     ]
                             }

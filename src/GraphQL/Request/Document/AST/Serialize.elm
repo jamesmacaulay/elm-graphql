@@ -238,6 +238,7 @@ serializeInlineFragment indentLevel { typeCondition, directives, selectionSet } 
     ]
         |> List.concat
         |> String.join " "
+        |> indent indentLevel
 
 
 serializeTypeCondition : AST.TypeCondition -> String
