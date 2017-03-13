@@ -1,4 +1,25 @@
-module GraphQL.Request.Builder.Variable exposing (..)
+module GraphQL.Request.Builder.Variable
+    exposing
+        ( Spec
+        , Nullable
+        , NonNull
+        , Variable
+        , Field
+        , required
+        , optional
+        , int
+        , float
+        , string
+        , bool
+        , id
+        , nullable
+        , list
+        , object
+        , field
+        , name
+        , toDefinitionAST
+        , extractValuesFrom
+        )
 
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Builder.TypeRef as TypeRef exposing (TypeRef)
@@ -23,16 +44,6 @@ type Variable source
 
 type Field source
     = Field String TypeRef (source -> AST.ConstantValue)
-
-
-name : Variable a -> String
-name var =
-    case var of
-        RequiredVariable name _ _ ->
-            name
-
-        OptionalVariable name _ _ _ ->
-            name
 
 
 required : String -> (a -> b) -> Spec nullability b -> Variable a
@@ -86,11 +97,6 @@ list (Spec _ typeRef convert) =
         (List.map convert >> AST.ListValue)
 
 
-fieldTuple : source -> Field source -> ( String, AST.ConstantValue )
-fieldTuple source (Field name _ convert) =
-    ( name, convert source )
-
-
 object : String -> List (Field source) -> Spec NonNull source
 object typeName fields =
     Spec
@@ -102,6 +108,36 @@ object typeName fields =
 field : String -> (obj -> field) -> Spec nullability field -> Field obj
 field name extract (Spec _ typeRef convert) =
     Field name typeRef (extract >> convert)
+
+
+fieldTuple : source -> Field source -> ( String, AST.ConstantValue )
+fieldTuple source (Field name _ convert) =
+    ( name, convert source )
+
+
+valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue )
+valueFromSource source var =
+    case var of
+        RequiredVariable _ _ f ->
+            Just ( name var, (f source) )
+
+        OptionalVariable _ _ f _ ->
+            case f source of
+                AST.NullValue ->
+                    Nothing
+
+                value ->
+                    Just ( name var, value )
+
+
+name : Variable a -> String
+name var =
+    case var of
+        RequiredVariable name _ _ ->
+            name
+
+        OptionalVariable name _ _ _ ->
+            name
 
 
 toDefinitionAST : Variable source -> AST.VariableDefinition
@@ -120,21 +156,6 @@ toDefinitionAST var =
                 , variableType = typeRef
                 , defaultValue = Just defaultValue
                 }
-
-
-valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue )
-valueFromSource source var =
-    case var of
-        RequiredVariable _ _ f ->
-            Just ( name var, (f source) )
-
-        OptionalVariable _ _ f _ ->
-            case f source of
-                AST.NullValue ->
-                    Nothing
-
-                value ->
-                    Just ( name var, value )
 
 
 extractValuesFrom : source -> List (Variable source) -> List ( String, AST.ConstantValue )
