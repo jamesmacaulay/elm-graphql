@@ -1,10 +1,10 @@
-## [early WIP] jamesmacaulay/elm-graphql
+## [pre-release] jamesmacaulay/elm-graphql
 
 A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written entirely in Elm.
 
 (Not to be confused with [jahewson/elm-graphql](https://github.com/jahewson/elm-graphql), which is a great project that takes a different approach.)
 
-This library is still a very early work-in-progress, but the goal is to provide a really good interface for working directly with GraphQL queries and schemas in Elm.
+This library is still a work in progress, but the goal is to provide a really good interface for working directly with GraphQL queries and schemas in Elm.
 
 Here's [a minimal end-to-end example](https://github.com/jamesmacaulay/elm-graphql/tree/master/example) that builds a query, sends it to a server, and decodes the response.
 
