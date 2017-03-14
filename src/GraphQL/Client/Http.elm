@@ -35,7 +35,7 @@ variableValuesToJson kvPairs =
 
 send :
     String
-    -> Builder.Request operationType variableSource result
+    -> Builder.Request operationType result
     -> Task Error result
 send url request =
     let
@@ -55,7 +55,7 @@ send url request =
 
 sendQuery :
     String
-    -> Builder.Request Builder.Query variableSource result
+    -> Builder.Request Builder.Query result
     -> Task Error result
 sendQuery =
     send
@@ -63,7 +63,7 @@ sendQuery =
 
 sendMutation :
     String
-    -> Builder.Request Builder.Mutation variableSource result
+    -> Builder.Request Builder.Mutation result
     -> Task Error result
 sendMutation =
     send

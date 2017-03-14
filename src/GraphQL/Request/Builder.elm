@@ -2,11 +2,12 @@ module GraphQL.Request.Builder
     exposing
         ( Request
         , Document
-        , Operation
         , Query
         , Mutation
         , Fragment
         , Spec
+        , Nullable
+        , NonNull
         , IntType
         , FloatType
         , StringType
@@ -15,8 +16,8 @@ module GraphQL.Request.Builder
         , EnumType
         , ListType
         , ObjectType
-        , Nullable
-        , NonNull
+        , FieldOption
+        , TypeCondition
         , request
         , requestBody
         , requestBodyAST
@@ -36,7 +37,6 @@ module GraphQL.Request.Builder
         , list
         , nullable
         , object
-        , produce
         , withField
         , field
         , alias
@@ -46,6 +46,7 @@ module GraphQL.Request.Builder
         , fragmentSpread
         , withInlineFragment
         , inlineFragment
+        , produce
         , map
         , map2
         , map3
@@ -56,6 +57,52 @@ module GraphQL.Request.Builder
         , map8
         , andMap
         )
+
+{-| This module provides an interface for building up GraphQL requests in a way that gives you everything you need to safely and conveniently integrate them with your Elm program:
+
+* GraphQL variables are automatically converted from corresponding Elm types, so the compiler will let you know if there's a mismatch between the variables used in a document and the values you provide when you send the request.
+* Responses from the server are decoded using a `Json.Decode.Decoder` value that is built up as you build each part of the request document.
+
+In order to use arguments and variables in your requests, you will need to use functions from the [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value) and [`GraphQL.Request.Builder.Variable`](GraphQL-Request-Builder-Variable) modules. To send your requests over HTTP, see the [`GraphQL.Client.Http`](GraphQL-Client-Http) module.
+
+
+# Requests
+
+@docs Request, request, requestBody, requestBodyAST, requestVariableValues, responseDecoder
+
+# Documents
+
+@docs Document, Query, Mutation, queryDocument, mutationDocument
+
+# Specs
+
+@docs Spec
+
+## Scalars
+
+@docs IntType, FloatType, StringType, BooleanType, IdType, EnumType, int, float, string, bool, id, enum, enumWithDefault
+
+## Nullability
+
+@docs Nullable, NonNull, nullable
+
+## Lists
+
+@docs ListType, list
+
+## Objects
+
+@docs ObjectType, object, withField, field, FieldOption, alias, args, directive
+
+## Composing
+
+@docs produce, map, andMap, map2, map3, map4, map5, map6, map7, map8
+
+# Fragments
+
+@docs Fragment, fragment, TypeCondition, onType, withFragment, fragmentSpread, withInlineFragment, inlineFragment
+
+-}
 
 import Json.Decode as Decode exposing (Decoder)
 import GraphQL.Request.Document.AST as AST
@@ -68,31 +115,25 @@ import Dict exposing (Dict)
 import Set exposing (Set)
 
 
-type Spec nullability coreType variableSource result
-    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
-
-
+{-| Specifies a named object, interface, or union type from the GraphQL schema that a fragment or inline fragment is valid to be used with.
+-}
 type alias TypeCondition =
     AST.TypeCondition
 
 
-type Fragment variableSource result
-    = Fragment
-        { name : String
-        , typeCondition : TypeCondition
-        , directives : List ( String, List ( String, Value.Argument variableSource ) )
-        , spec : Spec NonNull ObjectType variableSource result
-        }
-
-
-type Request operationType variableSource result
+{-| A `Request` bundles a `Document` along with any variable values that are to be sent along with it to the server. The `operationType` parameter may be either `Query` or `Mutation`. The `result` parameter is the type that a successful response from the server is decoded into.
+-}
+type Request operationType result
     = Request
-        { document : Document operationType variableSource result
-        , variableSource : variableSource
+        { documentAST : AST.Document
+        , documentString : String
         , variableValues : List ( String, AST.ConstantValue )
+        , responseDecoder : Decoder result
         }
 
 
+{-| A `Document` represents a single-operation GraphQL request document, along with the information necessary to encode variable values used in the document and to decode successful responses from the server. The `variableSource` parameter is the type of value that must be provided when constructing a `Request` in order for the document's variable values to be obtained. The `operationType` and `result` parameters are the same as in the `Request` type.
+-}
 type Document operationType variableSource result
     = Document
         { operation : Operation operationType variableSource result
@@ -115,18 +156,56 @@ type OperationType operationType
     | MutationOperationType
 
 
+{-| This type is used as a marker for `Request` and `Document` types to indicate that the document's operation is a query.
+-}
 type Query
     = Query
 
 
+{-| This type is used as a marker for `Request` and `Document` types to indicate that the document's operation is a mutation.
+-}
 type Mutation
     = Mutation
 
 
+{-| A fragment definition. The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the fragment. The `result` parameter is the type of the Elm value obtained from the `Fragment`'s JSON decoder.
+-}
+type Fragment variableSource result
+    = Fragment
+        { name : String
+        , typeCondition : TypeCondition
+        , directives : List ( String, List ( String, Value.Argument variableSource ) )
+        , spec : Spec NonNull ObjectType variableSource result
+        }
+
+
+{-| A `Spec` is a structured way of describing a value that you want back from a GraphQL server, and it is the fundamental building block of the request builder interface provided by this module. It corresponds loosely with the GraphQL concept of the "selection set", but it is used for scalar values as well as object values, and holds more information about their expected types. The `nullability` and `coreType` parameters are used by various functions in this module to ensure consistency when combining `Spec` values. As such, they will probably only become relevant to you when reading error messages from the compiler, at which point they will hopefully make the situation easier to understand. The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `Spec`. The `result` parameter specifies the type produced by the JSON decoder of the `Spec`.
+-}
+type Spec nullability coreType variableSource result
+    = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
+
+
+type SourceType nullability coreType
+    = SpecifiedType (SpecifiedTypeInfo nullability coreType)
+    | AnyType
+
+
+type alias SpecifiedTypeInfo nullability coreType =
+    { nullability : Nullability nullability
+    , coreType : coreType
+    , join : coreType -> coreType -> coreType
+    , selectionSet : AST.SelectionSet
+    }
+
+
+{-| This type is used as a marker for the `Spec` type's `nullability` parameter to indicate that the described GraphQL value may be `null`.
+-}
 type Nullable
     = Nullable
 
 
+{-| This type is used as a marker for the `Spec` type's `nullability` parameter to indicate that the described GraphQL value will never be `null`.
+-}
 type NonNull
     = NonNull
 
@@ -146,88 +225,106 @@ nonNullFlag =
     NonNullFlag
 
 
-type SourceType nullability coreType
-    = SpecifiedType (SpecifiedTypeInfo nullability coreType)
-    | AnyType
-
-
-type alias SpecifiedTypeInfo nullability coreType =
-    { nullability : Nullability nullability
-    , coreType : coreType
-    , join : coreType -> coreType -> coreType
-    , selectionSet : AST.SelectionSet
-    }
-
-
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Int` GraphQL type.
+-}
 type IntType
     = IntType
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Float` GraphQL type.
+-}
 type FloatType
     = FloatType
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `String` GraphQL type.
+-}
 type StringType
     = StringType
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Boolean` GraphQL type.
+-}
 type BooleanType
     = BooleanType
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `ID` GraphQL type.
+-}
 type IdType
     = IdType
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of some GraphQL Enum type.
+-}
 type EnumType
     = EnumType (List String)
 
 
-type ListType itemNullability itemType
-    = ListType (SourceType itemNullability itemType)
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is a GraphQL List of some other type. The `itemNullability` and `itemCoreType` parameters describe the type of the list's items in the same way as the `nullability` and `coreType` parameters of the `Spec` type, and may be inhabited by any of the same marker types.
+-}
+type ListType itemNullability itemCoreType
+    = ListType (SourceType itemNullability itemCoreType)
 
 
+{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of some GraphQL Object type.
+-}
 type ObjectType
     = ObjectType
 
 
+{-| An option for a field, returned by the `alias`, `args`, and `directive` functions, and passed in a list to the `withField` and `field` functions.
+-}
 type FieldOption variableSource
     = FieldAlias String
     | FieldArgs (List ( String, Value.Argument variableSource ))
     | FieldDirective String (List ( String, Value.Argument variableSource ))
 
 
+{-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `variableSource` value is used to obtain values for the variables used in the `Document`.
+-}
 request :
     variableSource
     -> Document operationType variableSource result
-    -> Request operationType variableSource result
-request variableSource document =
+    -> Request operationType result
+request variableSource ((Document { operation, ast, serialized }) as document) =
     Request
-        { document = document
-        , variableSource = variableSource
+        { documentAST = ast
+        , documentString = serialized
         , variableValues = (documentVariables document |> Variable.extractValuesFrom variableSource)
+        , responseDecoder =
+            (documentResponseDecoder document
+                |> Response.successDecoder
+            )
         }
 
 
-requestBody : Request operationType variableSource result -> String
-requestBody (Request { document }) =
-    documentString document
+{-| Get the serialized document body of a `Request`.
+-}
+requestBody : Request operationType result -> String
+requestBody (Request { documentString }) =
+    documentString
 
 
-requestBodyAST : Request operationType variableSource result -> AST.Document
-requestBodyAST (Request { document }) =
-    documentAST document
+{-| Get the AST (abstract syntax tree) representation of the document of a `Request`.
+-}
+requestBodyAST : Request operationType result -> AST.Document
+requestBodyAST (Request { documentAST }) =
+    documentAST
 
 
-requestVariableValues : Request operationType variableSource result -> List ( String, AST.ConstantValue )
+{-| Get the variable values associated with a `Request` as a List of `( String, AST.ConstantValue )` tuples.
+-}
+requestVariableValues : Request operationType result -> List ( String, AST.ConstantValue )
 requestVariableValues (Request { variableValues }) =
     variableValues
 
 
-responseDecoder : Request operationType variableSource result -> Decoder result
-responseDecoder (Request { document }) =
-    documentResponseDecoder document
-        |> Response.successDecoder
+{-| Get a JSON decoder that can be used to decode successful responses to a `Request`. The returned `Decoder` works on the whole response body, so it expects an object with a `"data"` key that holds the query or mutation's response data.
+-}
+responseDecoder : Request operationType result -> Decoder result
+responseDecoder (Request { responseDecoder }) =
+    responseDecoder
 
 
 fragmentDefinitionsFromOperation : Operation operationType variableSource result -> List AST.FragmentDefinitionInfo
@@ -258,6 +355,8 @@ document operation =
             }
 
 
+{-| Take a `Spec` and return a `Document` for a single query operation. The argument must be a `NonNull Object` Spec, because it represents the root-level selection set of the query operation.
+-}
 queryDocument :
     Spec NonNull ObjectType variableSource result
     -> Document Query variableSource result
@@ -277,6 +376,8 @@ queryOperationType =
     QueryOperationType
 
 
+{-| Take a `Spec` and return a `Document` for a single mutation operation. The argument must be a `NonNull Object` Spec, because it represents the root-level selection set of the mutation operation.
+-}
 mutationDocument :
     Spec NonNull ObjectType variableSource result
     -> Document Mutation variableSource result
@@ -296,6 +397,8 @@ mutationOperationType =
     MutationOperationType
 
 
+{-| Construct a `Fragment` by providing a name, a `TypeCondition`, and a `Spec`. The `Spec` argument must be a `NonNull Object` Spec, because it represents the selection set of the fragment.
+-}
 fragment :
     String
     -> TypeCondition
@@ -310,18 +413,48 @@ fragment name typeCondition spec =
         }
 
 
+{-| Construct a `TypeCondition` from the name of an object, interface, or union type defined in a GraphQL schema.
+-}
 onType : String -> TypeCondition
 onType =
     AST.TypeCondition
 
 
+{-| Takes a constructor function for an Elm type you want to produce, and returns a `Spec` for an object without any fields yet specified. This function is intended to be used with other pipeline-friendly functions like `withField`, `withFragment`, and `withInlineFragment` to build up `Spec` values that correspond to object selection sets. When a successful response is decoded, the decoded value of each selection in the pipeline gets threaded in the same order as arguments to the given constructor function to produce the final result. For example:
+
+    type alias User =
+        { name : String
+        , email : String
+        }
+
+    userSummary : Spec NonNull ObjectType variableSource User
+    userSummary =
+        object User
+            |> withField "name" [] string
+            |> withField "email" [] string
+
+The above `Spec` produces a GraphQL selection set that looks like the following:
+
+    {
+      name
+      email
+    }
+
+The above `Spec` also provides a JSON decoder for decoding the corresponding part of the response, equivalent to the following:
+
+    Json.Decode.map2 User
+        (Json.Decode.field "name" Json.Decode.string)
+        (Json.Decode.field "email" Json.Decode.string)
+-}
 object :
-    (fieldValue -> result)
-    -> Spec NonNull ObjectType variableSource (fieldValue -> result)
+    (fieldValue -> a)
+    -> Spec NonNull ObjectType variableSource (fieldValue -> a)
 object ctr =
     Spec emptyObjectSpecifiedType (always (Decode.succeed ctr)) [] []
 
 
+{-| Adds a field to an object `Spec` pipeline. The first argument is the name of the field. The second argument is a list of `FieldOption` values, allowing you to optionally specify an alias, arguments, and/or directives for the field. The third argument is a `Spec` for the value of the field, and the final argument (usually threaded via `|>`) is the in-progress `Spec` corresponding to the parent object.
+-}
 withField :
     String
     -> List (FieldOption variableSource)
@@ -333,6 +466,8 @@ withField name fieldOptions spec fSpec =
         |> andMap (field name fieldOptions spec)
 
 
+{-| Constructs a `Spec` for an object with a single field. The arguments are the same as those for `withField`, except that the final `Spec` argument representing the parent object is omitted.
+-}
 field :
     String
     -> List (FieldOption variableSource)
@@ -379,21 +514,70 @@ field name fieldOptions (Spec sourceType fieldDecoder fieldVars fragments) =
             fragments
 
 
+{-| Specify an alias for a field, overriding the property key used for the field in the JSON response. Returns a `FieldOption` to be passed to `withField` or `field`.
+-}
 alias : String -> FieldOption variableSource
 alias =
     FieldAlias
 
 
+{-| Specify arguments for a field in the form of key-value pairs. Values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
+-}
 args : List ( String, Value.Argument variableSource ) -> FieldOption variableSource
 args =
     FieldArgs
 
 
+{-| Specify a directive for a field by passing the name of the directive (e.g. "skip" or "include") plus a list of arguments in the form of key-value pairs. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
+-}
 directive : String -> List ( String, Value.Argument variableSource ) -> FieldOption variableSource
 directive =
     FieldDirective
 
 
+{-| Adds a fragment spread to an object `Spec` pipeline. Takes a `Fragment`, a list of optional directives, and a `Spec` of the parent object (intended to be threaded with `|>`). The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
+
+The fragment decoder's result type is wrapped in a `Maybe` to account for fragments with type constraints that do not hold for all values of the parent `Spec`. This means that the parent `Spec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
+
+    type alias User =
+        { name : String
+        , employeeInfo : Maybe EmployeeInfo
+        }
+
+    type alias EmployeeInfo =
+        { employeeNumber : Int
+        , title : String
+        }
+
+    employeeInfoFragment : Fragment variableSource EmployeeInfo
+    employeeInfoFragment =
+        fragment "employeeInfoFragment"
+            (onType "Employee")
+            (object EmployeeInfo
+                |> withField "employeeNumber" [] int
+                |> withField "title" [] string
+            )
+
+    userSpec : Spec NonNull ObjectType variableSource User
+    userSpec =
+        object User
+            |> withField "name" [] sring
+            |> withFragment employeeInfoFragment []
+
+Including the above `userSpec` anywhere in a `Document` results in the following fragment definition being included in the serialized output:
+
+    fragment employeeInfoFragment on Employee {
+      employeeNumber
+      title
+    }
+
+Meanwhile, the selection set of `userSpec` itself would look like this wherever it's used:
+
+    {
+      name
+      ...employeeInfoFragment
+    }
+-}
 withFragment :
     Fragment variableSource a
     -> List ( String, List ( String, Value.Argument variableSource ) )
@@ -404,6 +588,8 @@ withFragment fragment directives fSpec =
         |> andMap (fragmentSpread fragment directives)
 
 
+{-| Constructs a `Spec` for an object with a single fragment spread. The arguments are the same as those for `withFragment`, except that the final `Spec` argument representing the parent object is omitted.
+-}
 fragmentSpread :
     Fragment variableSource result
     -> List ( String, List ( String, Value.Argument variableSource ) )
@@ -434,6 +620,42 @@ fragmentSpread ((Fragment { name, spec }) as fragment) directives =
             (mergeFragments [ fragmentAST fragment ] nestedFragments)
 
 
+{-| Adds an inline fragment to an object `Spec` pipeline. Takes an optional `TypeCondition`, a list of optional directives, a `Spec` representing the selection set of the inline fragment, and another `Spec` for the parent object being constructed (intended to be threaded in with `|>`). The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
+
+The result type of the inline fragment's `Spec` is wrapped in a `Maybe` to account for type constraints that do not hold for all values of the parent `Spec`. This means that the parent `Spec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
+
+    type alias User =
+        { name : String
+        , employeeInfo : Maybe EmployeeInfo
+        }
+
+    type alias EmployeeInfo =
+        { employeeNumber : Int
+        , title : String
+        }
+
+    userSpec : Spec NonNull ObjectType variableSource User
+    userSpec =
+        object User
+            |> withField "name" [] sring
+            |> withInlineFragment
+                (Just (onType "Employee"))
+                []
+                (object EmployeeInfo
+                    |> withField "employeeNumber" [] int
+                    |> withField "title" [] string
+                )
+
+The selection set of the above `userSpec` would look like the following wherever it's used:
+
+    {
+      name
+      ... on Employee {
+        employeeNumber
+        title
+      }
+    }
+-}
 withInlineFragment :
     Maybe TypeCondition
     -> List ( String, List ( String, Value.Argument variableSource ) )
@@ -445,6 +667,8 @@ withInlineFragment maybeTypeCondition directives spec fSpec =
         |> andMap (inlineFragment maybeTypeCondition directives spec)
 
 
+{-| Constructs a `Spec` for an object with a single inline fragment. The arguments are the same as those for `withInlineFragment`, except that the final `Spec` argument representing the parent object is omitted.
+-}
 inlineFragment :
     Maybe TypeCondition
     -> List ( String, List ( String, Value.Argument variableSource ) )
@@ -495,32 +719,60 @@ varsFromFieldOption fieldOption =
             varsFromArguments arguments
 
 
+{-| A `Spec` for the GraphQL `Int` type that decodes to an Elm `Int`.
+-}
 int : Spec NonNull IntType variableSource Int
 int =
     primitiveSpec IntType Decode.int
 
 
+{-| A `Spec` for the GraphQL `Float` type that decodes to an Elm `Float`.
+-}
 float : Spec NonNull FloatType variableSource Float
 float =
     primitiveSpec FloatType Decode.float
 
 
+{-| A `Spec` for the GraphQL `String` type that decodes to an Elm `String`.
+-}
 string : Spec NonNull StringType variableSource String
 string =
     primitiveSpec StringType Decode.string
 
 
+{-| A `Spec` for the GraphQL `Boolean` type that decodes to an Elm `Bool`.
+-}
 bool : Spec NonNull BooleanType variableSource Bool
 bool =
     primitiveSpec BooleanType Decode.bool
 
 
+{-| A `Spec` for the GraphQL `ID` type that decodes to an Elm `String`.
+-}
 id : Spec NonNull IdType variableSource String
 id =
     primitiveSpec IdType Decode.string
 
 
-enum : List ( String, a ) -> Spec NonNull EnumType variableSource a
+{-| Constructs a `Spec` for a GraphQL Enum type. Takes a list of string-result pairs to map Enum values encountered in the response to values of the `result` type you wish to decode the Enum value as. For example:
+
+    type AccessLevel
+        = AdminAccess
+        | MemberAccess
+
+
+    userAccessLevelField : Spec NonNull EnumType variableSource AccessLevel
+    userAccessLevelField =
+        (field "accessLevel"
+            []
+            (enum
+                [ ( "ADMIN", AdminAccess )
+                , ( "MEMBER", MemberAccess )
+                ]
+            )
+        )
+-}
+enum : List ( String, result ) -> Spec NonNull EnumType variableSource result
 enum =
     enumWithFallback
         (\label ->
@@ -528,7 +780,26 @@ enum =
         )
 
 
-enumWithDefault : (String -> a) -> List ( String, a ) -> Spec NonNull EnumType variableSource a
+{-| Constructs a `Spec` for a GraphQL Enum type. Works the same as `enum`, but takes a default function to produce a `result` value from any Enum value not specified in the list of known Enum values. This is useful if you expect a schema to add more possible values to an Enum type in the future and don't want to bail out on the decoding process every time you encounter something you haven't seen before:
+
+    type AccessLevel
+        = AdminAccess
+        | MemberAccess
+        | UnknownAccess String
+
+
+    userAccessLevelField : Spec NonNull EnumType variableSource AccessLevel
+    userAccessLevelField =
+        (field "accessLevel"
+            []
+            (enumWithDefault UnknownAccess
+                [ ( "ADMIN", AdminAccess )
+                , ( "MEMBER", MemberAccess )
+                ]
+            )
+        )
+-}
+enumWithDefault : (String -> result) -> List ( String, result ) -> Spec NonNull EnumType variableSource result
 enumWithDefault ctr =
     enumWithFallback
         (\label ->
@@ -579,6 +850,8 @@ decoderFromEnumLabel fallbackDecoder labelledValues =
         decoder
 
 
+{-| Constructs a `Spec` for a GraphQL List type. Takes any kind of `Spec` to use for the items of the list, and returns a `Spec` that decodes into an Elm `List`.
+-}
 list :
     Spec itemNullability itemType variableSource result
     -> Spec NonNull (ListType itemNullability itemType) variableSource (List result)
@@ -596,6 +869,10 @@ list (Spec itemType decoder vars fragments) =
         fragments
 
 
+{-| Transforms a `NonNull` `Spec` into one that allows `null` values, using a `Maybe` of the original `Spec`'s `result` type to represent the nullability in the decoded Elm value.
+
+Note that the default `nullability` of a `Spec` in this module is `NonNull`. This is the opposite of the situation in the GraphQL schema language, whose types must be annotated with the Non-Null (`!`) modifier in order to specify that their values will never be `null`.
+-}
 nullable : Spec NonNull coreType variableSource result -> Spec Nullable coreType variableSource (Maybe result)
 nullable (Spec sourceType decoder vars fragments) =
     case sourceType of
@@ -620,16 +897,68 @@ emptyObjectSpecifiedType =
         }
 
 
+{-| Construct a `Spec` that always decodes to the given `result`, without using anything from the response value.
+-}
 produce : result -> Spec nullability coreType variableSource result
 produce x =
     Spec AnyType (always (Decode.succeed x)) [] []
 
 
+{-| Transform the result of a `Spec`'s decoder using the given function.
+
+    type alias User =
+        { nameLength : Int
+        , email : String
+        }
+
+    object User
+        |> withField "name" [] (map String.length string)
+        |> withFeild "email" [] string
+-}
 map : (a -> b) -> Spec nullability coreType variableSource a -> Spec nullability coreType variableSource b
 map f (Spec sourceType decoder vars fragments) =
     Spec sourceType (decoder >> Decode.map f) vars fragments
 
 
+{-| Combine two different `Spec`s using a function that combines their decoding results. For example, you can use this function to construct a `Spec` for an object with two fields, like so:
+
+    type alias User =
+        { name : String
+        , adminAccess : Bool
+        }
+
+    userSpec : Spec NonNull ObjectType variableSource User
+    userSpec =
+        map2 User
+            (field "name" [] string)
+            (field "adminAccess" [] bool)
+
+The above is equivalent to the "pipeline style" approach using the `object` and `withField` functions. However, the `mapN` functions can give you better error messages from the compiler when your types don't quite line up properly.
+
+You can also use the `mapN` functions to combine multiple fields in a response object into a single field in your decoded Elm type:
+
+    type alias User =
+        { name : String
+        , adminAccess : Bool
+        }
+
+    joinName : String -> String -> String
+    joinName first last =
+        first ++ " " ++ last
+
+    userSpec2 : Spec NonNull ObjectType variableSource User
+    userSpec2 =
+        map2 User
+            (map2 joinName
+                (field "firstName" [] string)
+                (field "lastName" [] string)
+            )
+            (field "adminAccess" [] bool)
+
+The above `userSpec2` ends up producing a GraphQL selection set of `{ firstName lastName adminAccess }`, and its decoder produces the `User`'s `name` by joining together the `firstName` and `lastName` values from the response with a single space.
+
+You might find other situations where the `mapN` functions are useful, but combining object fields is by far the most common use case.
+-}
 map2 :
     (a -> b -> c)
     -> Spec nullability coreType variableSource a
@@ -652,6 +981,8 @@ map2 f (Spec sourceTypeA decoderA varsA fragmentsA) (Spec sourceTypeB decoderB v
         Spec joinedSourceType joinedDecoder mergedVariables mergedFragments
 
 
+{-| Like `map2`, but combines three `Spec` values with a three-argument function.
+-}
 map3 :
     (a -> b -> c -> d)
     -> Spec nullability coreType variableSource a
@@ -664,6 +995,8 @@ map3 f s1 s2 s3 =
         |> andMap s3
 
 
+{-| Like `map2`, but combines four `Spec` values with a four-argument function.
+-}
 map4 :
     (a -> b -> c -> d -> e)
     -> Spec nullability coreType variableSource a
@@ -678,6 +1011,8 @@ map4 f s1 s2 s3 s4 =
         |> andMap s4
 
 
+{-| Like `map2`, but combines five `Spec` values with a five-argument function.
+-}
 map5 :
     (a -> b -> c -> d -> e -> f)
     -> Spec nullability coreType variableSource a
@@ -694,6 +1029,8 @@ map5 f s1 s2 s3 s4 s5 =
         |> andMap s5
 
 
+{-| Like `map2`, but combines six `Spec` values with a six-argument function.
+-}
 map6 :
     (a -> b -> c -> d -> e -> f -> g)
     -> Spec nullability coreType variableSource a
@@ -712,6 +1049,8 @@ map6 f s1 s2 s3 s4 s5 s6 =
         |> andMap s6
 
 
+{-| Like `map2`, but combines seven `Spec` values with a seven-argument function.
+-}
 map7 :
     (a -> b -> c -> d -> e -> f -> g -> h)
     -> Spec nullability coreType variableSource a
@@ -732,6 +1071,8 @@ map7 f s1 s2 s3 s4 s5 s6 s7 =
         |> andMap s7
 
 
+{-| Like `map2`, but combines eight `Spec` values with an eight-argument function.
+-}
 map8 :
     (a -> b -> c -> d -> e -> f -> g -> h -> i)
     -> Spec nullability coreType variableSource a
@@ -754,6 +1095,29 @@ map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
         |> andMap s8
 
 
+{-| This is the general-purpose alternative to the `mapN` functions, usable in a pipeline to combine any number of `Spec` values:
+
+    type alias User =
+        { name : String
+        , adminAccess : Bool
+        }
+
+    joinName : String -> String -> String
+    joinName first last =
+        first ++ " " ++ last
+
+    userSpec : Spec NonNull ObjectType variableSource User
+    userSpec =
+        object User
+            |> andMap
+                (map2 joinName
+                    (field "firstName" [] string)
+                    (field "lastName" [] string)
+                )
+            |> withField "adminAccess" [] bool
+
+This function forms the basis of `withField`, `withFragment`, and `withInlineFragment`, which are provided for convenience. In the above code, `withField "adminAccess" [] bool` is equivalent to `andMap (field "adminAccess" [] bool)`.
+-}
 andMap : Spec nullability coreType variableSource a -> Spec nullability coreType variableSource (a -> b) -> Spec nullability coreType variableSource b
 andMap specA specF =
     map2 (<|) specF specA

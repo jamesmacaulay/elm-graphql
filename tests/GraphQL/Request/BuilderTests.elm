@@ -11,7 +11,7 @@ import Json.Decode as Decode
 
 testDecoder :
     String
-    -> Request operationType variableSource result
+    -> Request operationType result
     -> String
     -> result
     -> Test.Test
@@ -107,7 +107,7 @@ exampleQueryUserProjectsFragment =
         )
 
 
-exampleQueryRequest : Request Query ExampleVariables ExampleQueryRoot
+exampleQueryRequest : Request Query ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
         |> withField "user"
