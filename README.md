@@ -65,7 +65,7 @@ The `Document` type can represent both query and mutation documents. It lets you
 Here's what the above Document looks like when you encode it to a string to be sent to the server:
 
 ```graphql
-query ($userID: String!) {
+query ($userID: ID!) {
   user(id: $userID) {
     name
     photos {
