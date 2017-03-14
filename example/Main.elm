@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Html exposing (Html, div, text)
 import GraphQL.Request.Builder exposing (..)
-import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Client.Http as GraphQLClient
 import Task exposing (Task)
@@ -52,7 +52,7 @@ query ($filmID: ID!, $pageSize: Int = 3) {
 This query is sent along with variable values extracted from the record passed
 to `request`, and the response is decoded into a `FilmSummary`.
 -}
-starWarsRequest : Request Query { filmID : String, pageSize : Maybe Int } FilmSummary
+starWarsRequest : Request Query FilmSummary
 starWarsRequest =
     let
         filmID =
@@ -65,16 +65,16 @@ starWarsRequest =
             fragment "filmPlanetsFragment"
                 (onType "Film")
                 (field "planetConnection"
-                    [ args [ ( "first", Value.variable pageSize ) ] ]
+                    [ args [ ( "first", Arg.variable pageSize ) ] ]
                     (connectionNodes (field "name" [] (nullable string)))
                 )
     in
         field "film"
-            [ args [ ( "filmID", Value.variable filmID ) ] ]
+            [ args [ ( "filmID", Arg.variable filmID ) ] ]
             (map3 FilmSummary
                 (field "title" [] (nullable string))
                 (field "characterConnection"
-                    [ args [ ( "first", Value.variable pageSize ) ] ]
+                    [ args [ ( "first", Arg.variable pageSize ) ] ]
                     (connectionNodes (field "name" [] (nullable string)))
                 )
                 (fragmentSpread planetsFragment [])
@@ -98,7 +98,7 @@ type Msg
     = ReceiveQueryResponse StarWarsResponse
 
 
-sendQueryRequest : Request Query variableSource a -> Task GraphQLClient.Error a
+sendQueryRequest : Request Query a -> Task GraphQLClient.Error a
 sendQueryRequest request =
     GraphQLClient.sendQuery "/" request
 
