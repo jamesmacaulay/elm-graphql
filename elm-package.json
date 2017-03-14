@@ -8,7 +8,8 @@
     ],
     "exposed-modules": [
         "GraphQL.Request.Builder",
-        "GraphQL.Request.Builder.Arg"
+        "GraphQL.Request.Builder.Arg",
+        "GraphQL.Request.Builder.Variable"
     ],
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",

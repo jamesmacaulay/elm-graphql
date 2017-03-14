@@ -71,8 +71,8 @@ includeProjectsVar =
     Variable.optional
         "includeProjects"
         .includeProjects
-        (Variable.nullable Variable.bool)
-        (Just False)
+        Variable.bool
+        False
 
 
 secrecyUnitsVar : Variable.Variable { v | secrecyUnits : Maybe String }
@@ -80,8 +80,8 @@ secrecyUnitsVar =
     Variable.optional
         "secrecyUnits"
         .secrecyUnits
-        (Variable.nullable Variable.string)
-        (Just "metric")
+        Variable.string
+        "metric"
 
 
 exampleQueryUserProjectsFragment : Fragment ExampleVariables (List ExampleQueryProject)
