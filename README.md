@@ -17,6 +17,8 @@ Building up a GraphQL query with this library feels a lot like building a JSON d
 
 ```elm
 import GraphQL.Request.Builder exposing (..)
+import GraphQL.Request.Builder.Arg as Arg
+import GraphQL.Request.Builder.Variable as Var
 
 type alias Photo =
     { url : String
@@ -31,28 +33,12 @@ type alias User =
 Then you build a query document:
 
 ```elm
-userQuery : Document Query User
+userQuery : Document Query { vars | userID : String } User
 userQuery =
     let
-        photo =
-            map2 Photo
-                (field "url" [] string)
-                (field "caption" [] string)
+        userIDVar =
+            Var.required "userID" .userID Var.id
 
-        user =
-            map2 User
-                (field "name" [] string)
-                (field "photos" [] (list photo))
-    in
-        queryDocument [] (field "user" [] user)
-```
-
-You can also use a pipeline style for constructing your queries, similar to the [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/latest) library. The following code is equivalent to the last example:
-
-```elm
-userQuery : Document Query User
-userQuery =
-    let
         photo =
             object Photo
                 |> withField "url" [] string
@@ -62,11 +48,14 @@ userQuery =
             object User
                 |> withField "name" [] string
                 |> withField "photos" [] (list photo)
+        
+        queryRoot =
+            field "user"
+                [ args [ ( "id", Arg.variable userIDVar ) ] ]
+                user
     in
-        queryDocument [] (field "user" [] user)
+        queryDocument queryRoot
 ```
-
-The tradeoff with the pipeline DSL is that the errors you get from the compiler can be more difficult to understand when you don't have the types lined up properly. This is the same tradeoff you make when using `elm-decode-pipeline` to decode JSON.
 
 The `Document` type can represent both query and mutation documents. It lets you do two important things:
   
@@ -76,8 +65,8 @@ The `Document` type can represent both query and mutation documents. It lets you
 Here's what the above Document looks like when you encode it to a string to be sent to the server:
 
 ```graphql
-{
-  user {
+query ($userID: String!) {
+  user(id: $userID) {
     name
     photos {
       url
@@ -87,7 +76,16 @@ Here's what the above Document looks like when you encode it to a string to be s
 }
 ```
 
-Assuming you've built a valid query for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Query User` value, using a JSON decoder that is built up along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
+To supply values for the variables used in the `Document`, you provide an Elm value that your variables can extract values from according to the getter functions supplied when you define the variables. In this example, the `"userID"` variable was defined as a string that's extracted from the `userID` field of some Elm record, so the following code is a valid way to create a `Request` with the required variable values supplied:
+
+```elm
+userQueryRequest : Request Query User
+userQueryRequest =
+    userQuery
+        |> request { userID = "123" }
+```
+
+Assuming you've built a query that is valid for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Query User` value, using a JSON decoder that is built up along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
 
 ```
 {
