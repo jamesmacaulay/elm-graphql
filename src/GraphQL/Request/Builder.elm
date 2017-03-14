@@ -108,7 +108,7 @@ import Json.Decode as Decode exposing (Decoder)
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Util as Util
-import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 import GraphQL.Response as Response
 import Dict exposing (Dict)
@@ -146,7 +146,7 @@ type Operation operationType variableSource result
     = Operation
         { operationType : OperationType operationType
         , name : Maybe String
-        , directives : List ( String, List ( String, Value.Argument variableSource ) )
+        , directives : List ( String, List ( String, Arg.Value variableSource ) )
         , spec : Spec NonNull ObjectType variableSource result
         }
 
@@ -174,7 +174,7 @@ type Fragment variableSource result
     = Fragment
         { name : String
         , typeCondition : TypeCondition
-        , directives : List ( String, List ( String, Value.Argument variableSource ) )
+        , directives : List ( String, List ( String, Arg.Value variableSource ) )
         , spec : Spec NonNull ObjectType variableSource result
         }
 
@@ -277,8 +277,8 @@ type ObjectType
 -}
 type FieldOption variableSource
     = FieldAlias String
-    | FieldArgs (List ( String, Value.Argument variableSource ))
-    | FieldDirective String (List ( String, Value.Argument variableSource ))
+    | FieldArgs (List ( String, Arg.Value variableSource ))
+    | FieldDirective String (List ( String, Arg.Value variableSource ))
 
 
 {-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `variableSource` value is used to obtain values for the variables used in the `Document`.
@@ -523,14 +523,14 @@ alias =
 
 {-| Specify arguments for a field in the form of key-value pairs. Values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
 -}
-args : List ( String, Value.Argument variableSource ) -> FieldOption variableSource
+args : List ( String, Arg.Value variableSource ) -> FieldOption variableSource
 args =
     FieldArgs
 
 
 {-| Specify a directive for a field by passing the name of the directive (e.g. "skip" or "include") plus a list of arguments in the form of key-value pairs. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
 -}
-directive : String -> List ( String, Value.Argument variableSource ) -> FieldOption variableSource
+directive : String -> List ( String, Arg.Value variableSource ) -> FieldOption variableSource
 directive =
     FieldDirective
 
@@ -580,7 +580,7 @@ Meanwhile, the selection set of `userSpec` itself would look like this wherever 
 -}
 withFragment :
     Fragment variableSource a
-    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> List ( String, List ( String, Arg.Value variableSource ) )
     -> Spec NonNull ObjectType variableSource (Maybe a -> b)
     -> Spec NonNull ObjectType variableSource b
 withFragment fragment directives fSpec =
@@ -592,7 +592,7 @@ withFragment fragment directives fSpec =
 -}
 fragmentSpread :
     Fragment variableSource result
-    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> List ( String, List ( String, Arg.Value variableSource ) )
     -> Spec NonNull ObjectType variableSource (Maybe result)
 fragmentSpread ((Fragment { name, spec }) as fragment) directives =
     let
@@ -658,7 +658,7 @@ The selection set of the above `userSpec` would look like the following wherever
 -}
 withInlineFragment :
     Maybe TypeCondition
-    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> List ( String, List ( String, Arg.Value variableSource ) )
     -> Spec NonNull ObjectType variableSource a
     -> Spec NonNull ObjectType variableSource (Maybe a -> b)
     -> Spec NonNull ObjectType variableSource b
@@ -671,7 +671,7 @@ withInlineFragment maybeTypeCondition directives spec fSpec =
 -}
 inlineFragment :
     Maybe TypeCondition
-    -> List ( String, List ( String, Value.Argument variableSource ) )
+    -> List ( String, List ( String, Arg.Value variableSource ) )
     -> Spec NonNull ObjectType variableSource result
     -> Spec NonNull ObjectType variableSource (Maybe result)
 inlineFragment maybeTypeCondition directives spec =
@@ -701,9 +701,9 @@ inlineFragment maybeTypeCondition directives spec =
             fragments
 
 
-varsFromArguments : List ( String, Value.Argument variableSource ) -> List (Variable variableSource)
+varsFromArguments : List ( String, Arg.Value variableSource ) -> List (Variable variableSource)
 varsFromArguments arguments =
-    List.concatMap (Value.getVariables << Tuple.second) arguments
+    List.concatMap (Arg.getVariables << Tuple.second) arguments
 
 
 varsFromFieldOption : FieldOption variableSource -> List (Variable variableSource)
@@ -1133,7 +1133,7 @@ applyFieldOption fieldOption field =
             { field
                 | arguments =
                     field.arguments
-                        ++ List.map (Tuple.mapSecond Value.getAST) arguments
+                        ++ List.map (Tuple.mapSecond Arg.getAST) arguments
             }
 
         FieldDirective name arguments ->
@@ -1142,7 +1142,7 @@ applyFieldOption fieldOption field =
                     field.directives
                         ++ [ AST.Directive
                                 { name = name
-                                , arguments = List.map (Tuple.mapSecond Value.getAST) arguments
+                                , arguments = List.map (Tuple.mapSecond Arg.getAST) arguments
                                 }
                            ]
             }
@@ -1229,12 +1229,12 @@ variableDefinitionsAST (Spec _ _ vars _) =
 
 
 directiveAST :
-    ( String, List ( String, Value.Argument a ) )
+    ( String, List ( String, Arg.Value a ) )
     -> AST.Directive
 directiveAST ( name, arguments ) =
     AST.Directive
         { name = name
-        , arguments = List.map (Tuple.mapSecond Value.getAST) arguments
+        , arguments = List.map (Tuple.mapSecond Arg.getAST) arguments
         }
 
 
@@ -1267,7 +1267,7 @@ fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     }
 
 
-varsFromDirectives : List ( String, List ( String, Value.Argument variableSource ) ) -> List (Variable variableSource)
+varsFromDirectives : List ( String, List ( String, Arg.Value variableSource ) ) -> List (Variable variableSource)
 varsFromDirectives =
     List.concatMap (Tuple.second >> varsFromArguments)
 

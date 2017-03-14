@@ -3,8 +3,9 @@ module GraphQL.Request.BuilderTests exposing (..)
 import Test exposing (..)
 import Expect
 import GraphQL.Request.Builder exposing (..)
-import GraphQL.Request.Builder.Value as Value
+import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable
+import GraphQL.Request.Document.AST as AST
 import GraphQL.Response as Response
 import Json.Decode as Decode
 
@@ -88,8 +89,8 @@ exampleQueryUserProjectsFragment =
     fragment "userProjectsFragment"
         (onType "User")
         (field "projects"
-            [ args [ ( "first", Value.int 1 ) ]
-            , directive "include" [ ( "if", Value.variable includeProjectsVar ) ]
+            [ args [ ( "first", Arg.int 1 ) ]
+            , directive "include" [ ( "if", Arg.variable includeProjectsVar ) ]
             ]
             (list
                 (object ExampleQueryProject
@@ -99,7 +100,7 @@ exampleQueryUserProjectsFragment =
                     |> withInlineFragment (Just (onType "SecretProject"))
                         []
                         (field "secrecyLevel"
-                            [ args [ ( "units", Value.variable secrecyUnitsVar ) ] ]
+                            [ args [ ( "units", Arg.variable secrecyUnitsVar ) ] ]
                             int
                         )
                 )
@@ -111,7 +112,7 @@ exampleQueryRequest : Request Query ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
         |> withField "user"
-            [ args [ ( "id", Value.variable userIdVar ) ] ]
+            [ args [ ( "id", Arg.variable userIdVar ) ] ]
             (object ExampleQueryUser
                 |> withField "id" [] id
                 |> withField "name" [] string
@@ -200,8 +201,8 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
             exampleQueryRequest
                 |> requestVariableValues
                 |> Expect.equal
-                    [ ( "userId", Value.getAST (Value.string "123") )
-                    , ( "includeProjects", Value.getAST (Value.bool True) )
+                    [ ( "userId", AST.StringValue "123" )
+                    , ( "includeProjects", AST.BooleanValue True )
                     ]
     , test "decoding a successful response of a request" <|
         \() ->
