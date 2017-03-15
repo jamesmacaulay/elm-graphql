@@ -65,54 +65,56 @@ module GraphQL.Request.Builder
 In order to use arguments and variables in your requests, you will need to use functions from the [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value) and [`GraphQL.Request.Builder.Variable`](GraphQL-Request-Builder-Variable) modules. To send your requests over HTTP, see the [`GraphQL.Client.Http`](GraphQL-Client-Http) module.
 
 
-# Requests
-
-@docs Request, request, requestBody, jsonVariableValues, responseDataDecoder
-
-# Documents
-
-@docs Document, Query, Mutation, queryDocument, mutationDocument
-
 # Specs
 
-@docs Spec
-
-## Scalars
-
-@docs IntType, FloatType, StringType, BooleanType, IdType, EnumType, int, float, string, bool, id, enum, enumWithDefault
-
-## Nullability
-
-@docs Nullable, NonNull, nullable
-
-## Lists
-
-@docs ListType, list
+@docs Spec, NonNull, Nullable, IntType, FloatType, StringType, BooleanType, IdType, EnumType, ListType, ObjectType
 
 ## Objects
 
-@docs ObjectType, object, withField, field, FieldOption, alias, args, directive
+@docs object
 
-## Composing
+### Fields
+
+@docs withField, field, FieldOption, alias, args, directive
+
+### Fragments
+
+@docs Fragment, fragment, TypeCondition, onType, withFragment, fragmentSpread, withInlineFragment, inlineFragment
+
+## Scalars
+
+@docs int, float, string, bool, id, enum, enumWithDefault
+
+## Nullability
+
+@docs nullable
+
+## Lists
+
+@docs list
+
+## Spec composition
 
 @docs produce, map, andMap, map2, map3, map4, map5, map6, map7, map8
 
-# Fragments
+# Documents
 
-@docs Fragment, fragment, TypeCondition, onType, withFragment, fragmentSpread, withInlineFragment, inlineFragment
+@docs Document, Query, queryDocument, Mutation, mutationDocument
+
+# Requests
+
+@docs Request, request, requestBody, jsonVariableValues, responseDataDecoder
 
 -}
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import Task exposing (Task)
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
 import GraphQL.Request.Document.AST.Util as Util
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
-import GraphQL.Response as Response
 import Dict exposing (Dict)
 import Set exposing (Set)
 
@@ -181,7 +183,13 @@ type Fragment variableSource result
         }
 
 
-{-| A `Spec` is a structured way of describing a value that you want back from a GraphQL server, and it is the fundamental building block of the request builder interface provided by this module. It corresponds loosely with the GraphQL concept of the "selection set", but it is used for scalar values as well as object values, and holds more information about their expected types. The `nullability` and `coreType` parameters are used by various functions in this module to ensure consistency when combining `Spec` values. As such, they will probably only become relevant to you when reading error messages from the compiler, at which point they will hopefully make the situation easier to understand. The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `Spec`. The `result` parameter specifies the type produced by the JSON decoder of the `Spec`.
+{-| A `Spec` is a structured way of describing a value that you want back from a GraphQL server, and it is the fundamental building block of the request builder interface provided by this module. It corresponds loosely with the GraphQL concept of the "selection set", but it is used for scalar values as well as object values, and holds more information about their expected types.
+
+The `nullability` and `coreType` parameters are used by various functions in this module to ensure consistency when combining `Spec` values. As such, they will probably only become relevant to you when reading error messages from the compiler, at which point they will hopefully make the situation easier to understand.
+
+The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `Spec`.
+
+The `result` parameter specifies the type produced by the JSON decoder of the `Spec`.
 -}
 type Spec nullability coreType variableSource result
     = Spec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
@@ -200,13 +208,13 @@ type alias SpecifiedTypeInfo nullability coreType =
     }
 
 
-{-| This type is used as a marker for the `Spec` type's `nullability` parameter to indicate that the described GraphQL value may be `null`.
+{-| Indicates that a `Spec` describes GraphQL values that may be `null`.
 -}
 type Nullable
     = Nullable
 
 
-{-| This type is used as a marker for the `Spec` type's `nullability` parameter to indicate that the described GraphQL value will never be `null`.
+{-| Indicates that a `Spec` describes GraphQL values that may not be `null`. Unlike in the GraphQL schema language, `NonNull` is the default in this library.
 -}
 type NonNull
     = NonNull
@@ -227,55 +235,55 @@ nonNullFlag =
     NonNullFlag
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Int` GraphQL type.
+{-| Indicates that a `Spec` describes GraphQL `Int` values.
 -}
 type IntType
     = IntType
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Float` GraphQL type.
+{-| Indicates that a `Spec` describes GraphQL `Float` values.
 -}
 type FloatType
     = FloatType
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `String` GraphQL type.
+{-| Indicates that a `Spec` describes GraphQL `String` values.
 -}
 type StringType
     = StringType
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `Boolean` GraphQL type.
+{-| Indicates that a `Spec` describes GraphQL `Boolean` values.
 -}
 type BooleanType
     = BooleanType
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of the `ID` GraphQL type.
+{-| Indicates that a `Spec` describes GraphQL `ID` values.
 -}
 type IdType
     = IdType
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of some GraphQL Enum type.
+{-| Indicates that a `Spec` describes values of some GraphQL Enum type.
 -}
 type EnumType
     = EnumType (List String)
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is a GraphQL List of some other type. The `itemNullability` and `itemCoreType` parameters describe the type of the list's items in the same way as the `nullability` and `coreType` parameters of the `Spec` type, and may be inhabited by any of the same marker types.
+{-| Indicates that a `Spec` describes values of some GraphQL List type.
 -}
 type ListType itemNullability itemCoreType
     = ListType (SourceType itemNullability itemCoreType)
 
 
-{-| This type is used as a marker for the `Spec` type's `coreType` parameter to indicate that the described GraphQL value is of some GraphQL Object type.
+{-| Indicates that a `Spec` describes values of some GraphQL Object type.
 -}
 type ObjectType
     = ObjectType
 
 
-{-| An option for a field, returned by the `alias`, `args`, and `directive` functions, and passed in a list to the `withField` and `field` functions.
+{-| An option for a field, returned by the `alias`, `args`, and `directive` functions.
 -}
 type FieldOption variableSource
     = FieldAlias String
@@ -757,7 +765,7 @@ id =
     primitiveSpec IdType Decode.string
 
 
-{-| Constructs a `Spec` for a GraphQL Enum type. Takes a list of string-result pairs to map Enum values encountered in the response to values of the `result` type you wish to decode the Enum value as. For example:
+{-| Constructs a `Spec` for a GraphQL Enum type. Takes a list of string-result pairs to map Enum values to `result` values. For example:
 
     type AccessLevel
         = AdminAccess
