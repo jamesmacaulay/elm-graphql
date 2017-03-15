@@ -20,7 +20,7 @@ testDecoder expr request testJSON expectedResult =
     test ("Decoder for " ++ expr) <|
         \() ->
             request
-                |> responseDecoder
+                |> responseDataDecoder
                 |> flip Decode.decodeString testJSON
                 |> Expect.equal (Ok expectedResult)
 
@@ -199,15 +199,21 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
     , test "variable values of a request" <|
         \() ->
             exampleQueryRequest
-                |> requestVariableValues
+                |> jsonVariableValues
+                |> Maybe.map
+                    (Decode.decodeValue
+                        (Decode.map2 (,)
+                            (Decode.field "userId" Decode.string)
+                            (Decode.field "includeProjects" Decode.bool)
+                        )
+                    )
                 |> Expect.equal
-                    [ ( "userId", AST.StringValue "123" )
-                    , ( "includeProjects", AST.BooleanValue True )
-                    ]
+                    (Just (Ok ( "123", True )))
     , test "decoding a successful response of a request" <|
         \() ->
             exampleSuccessResponse
-                |> Decode.decodeString (responseDecoder exampleQueryRequest)
+                |> Decode.decodeString
+                    (Decode.field "data" (responseDataDecoder exampleQueryRequest))
                 |> Expect.equal
                     (Ok
                         { user =
@@ -228,7 +234,7 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
     , test "decoding an error response of a request" <|
         \() ->
             exampleErrorResponse
-                |> Decode.decodeString Response.errorsDecoder
+                |> Decode.decodeString (Decode.field "errors" Response.errorsDecoder)
                 |> Expect.equal
                     (Ok
                         [ { message = "Cannot query field \"user\" on type \"Query\"."

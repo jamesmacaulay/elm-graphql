@@ -20,9 +20,8 @@ module GraphQL.Request.Builder
         , TypeCondition
         , request
         , requestBody
-        , requestBodyAST
-        , requestVariableValues
-        , responseDecoder
+        , jsonVariableValues
+        , responseDataDecoder
         , queryDocument
         , mutationDocument
         , fragment
@@ -68,7 +67,7 @@ In order to use arguments and variables in your requests, you will need to use f
 
 # Requests
 
-@docs Request, request, requestBody, requestBodyAST, requestVariableValues, responseDecoder
+@docs Request, request, requestBody, jsonVariableValues, responseDataDecoder
 
 # Documents
 
@@ -105,8 +104,11 @@ In order to use arguments and variables in your requests, you will need to use f
 -}
 
 import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
+import Task exposing (Task)
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize as Serialize
+import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
 import GraphQL.Request.Document.AST.Util as Util
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
@@ -128,7 +130,7 @@ type Request operationType result
         { documentAST : AST.Document
         , documentString : String
         , variableValues : List ( String, AST.ConstantValue )
-        , responseDecoder : Decoder result
+        , responseDataDecoder : Decoder result
         }
 
 
@@ -292,10 +294,7 @@ request variableSource ((Document { operation, ast, serialized }) as document) =
         { documentAST = ast
         , documentString = serialized
         , variableValues = (documentVariables document |> Variable.extractValuesFrom variableSource)
-        , responseDecoder =
-            (documentResponseDecoder document
-                |> Response.successDecoder
-            )
+        , responseDataDecoder = documentResponseDecoder document
         }
 
 
@@ -306,25 +305,29 @@ requestBody (Request { documentString }) =
     documentString
 
 
-{-| Get the AST (abstract syntax tree) representation of the document of a `Request`.
+variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Encode.Value
+variableValuesToJson kvPairs =
+    if List.isEmpty kvPairs then
+        Nothing
+    else
+        kvPairs
+            |> List.map (Tuple.mapSecond ValueEncode.encode)
+            |> Encode.object
+            |> Just
+
+
+{-| Get the variable values associated with a `Request` (if there are any) as a `Maybe Json.Encode.Value`, ready to be sent as a parameter to a GraphQL server.
 -}
-requestBodyAST : Request operationType result -> AST.Document
-requestBodyAST (Request { documentAST }) =
-    documentAST
+jsonVariableValues : Request operationType result -> Maybe Encode.Value
+jsonVariableValues (Request { variableValues }) =
+    variableValuesToJson variableValues
 
 
-{-| Get the variable values associated with a `Request` as a List of `( String, AST.ConstantValue )` tuples.
+{-| Get a JSON decoder that can be used to decode the data contained in a successful response to a `Request`. If you're working with a conventional GraphQL response over HTTP, the returned `Decoder` works on the data found under the `"data"` key of the response.
 -}
-requestVariableValues : Request operationType result -> List ( String, AST.ConstantValue )
-requestVariableValues (Request { variableValues }) =
-    variableValues
-
-
-{-| Get a JSON decoder that can be used to decode successful responses to a `Request`. The returned `Decoder` works on the whole response body, so it expects an object with a `"data"` key that holds the query or mutation's response data.
--}
-responseDecoder : Request operationType result -> Decoder result
-responseDecoder (Request { responseDecoder }) =
-    responseDecoder
+responseDataDecoder : Request operationType result -> Decoder result
+responseDataDecoder (Request { responseDataDecoder }) =
+    responseDataDecoder
 
 
 fragmentDefinitionsFromOperation : Operation operationType variableSource result -> List AST.FragmentDefinitionInfo

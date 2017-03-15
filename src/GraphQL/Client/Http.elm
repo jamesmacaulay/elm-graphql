@@ -1,43 +1,46 @@
 module GraphQL.Client.Http
     exposing
-        ( Error(..)
+        ( RequestError
+        , DocumentLocation
+        , Error(..)
         , sendQuery
         , sendMutation
-        , sendRaw
         )
 
 {-| The functions in this module let you perform HTTP requests to conventional GraphQL server endpoints.
 
-@docs Error, sendQuery, sendMutation, sendRaw
+@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation
 -}
 
 import GraphQL.Request.Builder as Builder
-import GraphQL.Request.Document.AST as AST
-import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
 import GraphQL.Response as Response
 import Json.Decode
 import Json.Encode
 import Http
-import Tuple
 import Task exposing (Task)
+
+
+{-| An error returned by the GraphQL server that indicates there was something wrong with the request.
+-}
+type alias RequestError =
+    { message : String
+    , locations : List DocumentLocation
+    }
+
+
+{-| A location in a GraphQL request document.
+-}
+type alias DocumentLocation =
+    { line : Int
+    , column : Int
+    }
 
 
 {-| Represents errors that can occur when sending a GraphQL request over HTTP.
 -}
 type Error
     = HttpError Http.Error
-    | GraphQLError (List Response.Error)
-
-
-variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Json.Encode.Value
-variableValuesToJson kvPairs =
-    if List.isEmpty kvPairs then
-        Nothing
-    else
-        kvPairs
-            |> List.map (Tuple.mapSecond ValueEncode.encode)
-            |> Json.Encode.object
-            |> Just
+    | GraphQLError (List RequestError)
 
 
 send :
@@ -50,12 +53,10 @@ send url request =
             Builder.requestBody request
 
         decoder =
-            Builder.responseDecoder request
+            Builder.responseDataDecoder request
 
         variableValuesJson =
-            request
-                |> Builder.requestVariableValues
-                |> variableValuesToJson
+            Builder.jsonVariableValues request
     in
         sendRaw url documentString decoder variableValuesJson
 
@@ -80,10 +81,15 @@ sendMutation =
     send
 
 
+errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
+errorsResponseDecoder =
+    Json.Decode.field "errors" Response.errorsDecoder
+
+
 handleErrorWithResponseBody : Http.Error -> String -> Error
 handleErrorWithResponseBody error responseBody =
     responseBody
-        |> Json.Decode.decodeString Response.errorsDecoder
+        |> Json.Decode.decodeString errorsResponseDecoder
         |> Result.map GraphQLError
         |> Result.withDefault (HttpError error)
 
@@ -101,13 +107,14 @@ convertHttpError error =
             HttpError error
 
 
-{-| Returns a `Task` to send a GraphQL request built out of its component pieces. Takes a URL, a serialized GraphQL request document, a `Json.Decode.Decoder` for the response body, and an optional `Json.Encode.Value` for variable values.
--}
 sendRaw : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Error a
-sendRaw url documentString decoder variableValues =
+sendRaw url documentString dataDecoder variableValues =
     let
         documentValue =
             Json.Encode.string documentString
+
+        decoder =
+            Json.Decode.field "data" dataDecoder
 
         extraParams =
             variableValues
