@@ -283,7 +283,7 @@ type FieldOption variableSource
     | FieldDirective String (List ( String, Arg.Value variableSource ))
 
 
-{-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `variableSource` value is used to obtain values for the variables used in the `Document`.
+{-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `variableSource` value that is used to obtain values for any variables used in the `Document`. If the `Document` does not use any variables, then you can pass in `()` or any other value as the `variableSource` and it will be ignored.
 -}
 request :
     variableSource
