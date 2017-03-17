@@ -54,7 +54,7 @@ module GraphQL.Request.Builder
         , map6
         , map7
         , map8
-        , andMap
+        , with
         )
 
 {-| This module provides an interface for building up GraphQL requests in a way that gives you everything you need to safely and conveniently integrate them with your Elm program:
@@ -95,7 +95,7 @@ In order to use arguments and variables in your requests, you will need to use f
 
 ## Spec composition
 
-@docs produce, map, andMap, map2, map3, map4, map5, map6, map7, map8
+@docs produce, map, with, map2, map3, map4, map5, map6, map7, map8
 
 # Documents
 
@@ -474,7 +474,7 @@ withField :
     -> Spec NonNull ObjectType variableSource b
 withField name fieldOptions spec fSpec =
     fSpec
-        |> andMap (field name fieldOptions spec)
+        |> with (field name fieldOptions spec)
 
 
 {-| Constructs a `Spec` for an object with a single field. The arguments are the same as those for `withField`, except that the final `Spec` argument representing the parent object is omitted.
@@ -596,7 +596,7 @@ withFragment :
     -> Spec NonNull ObjectType variableSource b
 withFragment fragment directives fSpec =
     fSpec
-        |> andMap (fragmentSpread fragment directives)
+        |> with (fragmentSpread fragment directives)
 
 
 {-| Constructs a `Spec` for an object with a single fragment spread. The arguments are the same as those for `withFragment`, except that the final `Spec` argument representing the parent object is omitted.
@@ -675,7 +675,7 @@ withInlineFragment :
     -> Spec NonNull ObjectType variableSource b
 withInlineFragment maybeTypeCondition directives spec fSpec =
     fSpec
-        |> andMap (inlineFragment maybeTypeCondition directives spec)
+        |> with (inlineFragment maybeTypeCondition directives spec)
 
 
 {-| Constructs a `Spec` for an object with a single inline fragment. The arguments are the same as those for `withInlineFragment`, except that the final `Spec` argument representing the parent object is omitted.
@@ -1002,8 +1002,8 @@ map3 :
     -> Spec nullability coreType variableSource d
 map3 f s1 s2 s3 =
     map f s1
-        |> andMap s2
-        |> andMap s3
+        |> with s2
+        |> with s3
 
 
 {-| Like `map2`, but combines four `Spec` values with a four-argument function.
@@ -1017,9 +1017,9 @@ map4 :
     -> Spec nullability coreType variableSource e
 map4 f s1 s2 s3 s4 =
     map f s1
-        |> andMap s2
-        |> andMap s3
-        |> andMap s4
+        |> with s2
+        |> with s3
+        |> with s4
 
 
 {-| Like `map2`, but combines five `Spec` values with a five-argument function.
@@ -1034,10 +1034,10 @@ map5 :
     -> Spec nullability coreType variableSource f
 map5 f s1 s2 s3 s4 s5 =
     map f s1
-        |> andMap s2
-        |> andMap s3
-        |> andMap s4
-        |> andMap s5
+        |> with s2
+        |> with s3
+        |> with s4
+        |> with s5
 
 
 {-| Like `map2`, but combines six `Spec` values with a six-argument function.
@@ -1053,11 +1053,11 @@ map6 :
     -> Spec nullability coreType variableSource g
 map6 f s1 s2 s3 s4 s5 s6 =
     map f s1
-        |> andMap s2
-        |> andMap s3
-        |> andMap s4
-        |> andMap s5
-        |> andMap s6
+        |> with s2
+        |> with s3
+        |> with s4
+        |> with s5
+        |> with s6
 
 
 {-| Like `map2`, but combines seven `Spec` values with a seven-argument function.
@@ -1074,12 +1074,12 @@ map7 :
     -> Spec nullability coreType variableSource h
 map7 f s1 s2 s3 s4 s5 s6 s7 =
     map f s1
-        |> andMap s2
-        |> andMap s3
-        |> andMap s4
-        |> andMap s5
-        |> andMap s6
-        |> andMap s7
+        |> with s2
+        |> with s3
+        |> with s4
+        |> with s5
+        |> with s6
+        |> with s7
 
 
 {-| Like `map2`, but combines eight `Spec` values with an eight-argument function.
@@ -1097,13 +1097,13 @@ map8 :
     -> Spec nullability coreType variableSource i
 map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
     map f s1
-        |> andMap s2
-        |> andMap s3
-        |> andMap s4
-        |> andMap s5
-        |> andMap s6
-        |> andMap s7
-        |> andMap s8
+        |> with s2
+        |> with s3
+        |> with s4
+        |> with s5
+        |> with s6
+        |> with s7
+        |> with s8
 
 
 {-| This is the general-purpose alternative to the `mapN` functions, usable in a pipeline to combine any number of `Spec` values:
@@ -1120,17 +1120,17 @@ map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
     userSpec : Spec NonNull ObjectType variableSource User
     userSpec =
         object User
-            |> andMap
+            |> with
                 (map2 joinName
                     (field "firstName" [] string)
                     (field "lastName" [] string)
                 )
             |> withField "adminAccess" [] bool
 
-This function forms the basis of `withField`, `withFragment`, and `withInlineFragment`, which are provided for convenience. In the above code, `withField "adminAccess" [] bool` is equivalent to `andMap (field "adminAccess" [] bool)`.
+This function forms the basis of `withField`, `withFragment`, and `withInlineFragment`, which are provided for convenience. In the above code, `withField "adminAccess" [] bool` is equivalent to `with (field "adminAccess" [] bool)`.
 -}
-andMap : Spec nullability coreType variableSource a -> Spec nullability coreType variableSource (a -> b) -> Spec nullability coreType variableSource b
-andMap specA specF =
+with : Spec nullability coreType variableSource a -> Spec nullability coreType variableSource (a -> b) -> Spec nullability coreType variableSource b
+with specA specF =
     map2 (<|) specF specA
 
 
