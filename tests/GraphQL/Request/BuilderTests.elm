@@ -5,7 +5,6 @@ import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable
-import GraphQL.Request.Document.AST as AST
 import GraphQL.Response as Response
 import Json.Decode as Decode
 
