@@ -94,18 +94,28 @@ exampleQueryUserProjectsFragment =
             ]
             (list
                 (object ExampleQueryProject
-                    |> withField "id" [] id
-                    |> withField "name" [] string
-                    |> withField "featured" [] bool
-                    |> withInlineFragment (Just (onType "SecretProject"))
-                        []
-                        (field "secrecyLevel"
-                            [ args [ ( "units", Arg.variable secrecyUnitsVar ) ] ]
-                            int
+                    |> with (field "id" [] id)
+                    |> with (field "name" [] string)
+                    |> with (field "featured" [] bool)
+                    |> with
+                        (inlineFragment (Just (onType "SecretProject"))
+                            []
+                            (field "secrecyLevel"
+                                [ args [ ( "units", Arg.variable secrecyUnitsVar ) ] ]
+                                int
+                            )
                         )
                 )
             )
         )
+
+
+roleEnum : Spec NonNull EnumType variableSource ExampleRole
+roleEnum =
+    enum
+        [ ( "ADMIN", ExampleAdminRole )
+        , ( "MEMBER", ExampleMemberRole )
+        ]
 
 
 exampleQueryRequest : Request Query ExampleQueryRoot
@@ -114,16 +124,10 @@ exampleQueryRequest =
         |> withField "user"
             [ args [ ( "id", Arg.variable userIdVar ) ] ]
             (object ExampleQueryUser
-                |> withField "id" [] id
-                |> withField "name" [] string
-                |> withField "role"
-                    []
-                    (enum
-                        [ ( "ADMIN", ExampleAdminRole )
-                        , ( "MEMBER", ExampleMemberRole )
-                        ]
-                    )
-                |> withFragment exampleQueryUserProjectsFragment []
+                |> with (field "id" [] id)
+                |> with (field "name" [] string)
+                |> with (field "role" [] roleEnum)
+                |> with (fragmentSpread exampleQueryUserProjectsFragment [])
             )
         |> queryDocument
         |> request
