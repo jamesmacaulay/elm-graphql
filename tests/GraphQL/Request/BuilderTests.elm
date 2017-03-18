@@ -120,13 +120,15 @@ roleEnum =
 exampleQueryRequest : Request Query ExampleQueryRoot
 exampleQueryRequest =
     object ExampleQueryRoot
-        |> withField "user"
-            [ args [ ( "id", Arg.variable userIdVar ) ] ]
-            (object ExampleQueryUser
-                |> with (field "id" [] id)
-                |> with (field "name" [] string)
-                |> with (field "role" [] roleEnum)
-                |> with (fragmentSpread exampleQueryUserProjectsFragment [])
+        |> with
+            (field "user"
+                [ args [ ( "id", Arg.variable userIdVar ) ] ]
+                (object ExampleQueryUser
+                    |> with (field "id" [] id)
+                    |> with (field "name" [] string)
+                    |> with (field "role" [] roleEnum)
+                    |> with (fragmentSpread exampleQueryUserProjectsFragment [])
+                )
             )
         |> queryDocument
         |> request

@@ -41,13 +41,13 @@ userQuery =
 
         photo =
             object Photo
-                |> withField "url" [] string
-                |> withField "caption" [] string
+                |> with (field "url" [] string)
+                |> with (field "caption" [] string)
 
         user =
             object User
-                |> withField "name" [] string
-                |> withField "photos" [] (list photo)
+                |> with (field "name" [] string)
+                |> with (field "photos" [] (list photo))
         
         queryRoot =
             field "user"

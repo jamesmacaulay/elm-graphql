@@ -36,14 +36,11 @@ module GraphQL.Request.Builder
         , list
         , nullable
         , object
-        , withField
         , field
         , alias
         , args
         , directive
-        , withFragment
         , fragmentSpread
-        , withInlineFragment
         , inlineFragment
         , produce
         , map
@@ -75,11 +72,11 @@ In order to use arguments and variables in your requests, you will need to use f
 
 ### Fields
 
-@docs withField, field, FieldOption, alias, args, directive
+@docs field, FieldOption, alias, args, directive
 
 ### Fragments
 
-@docs Fragment, fragment, TypeCondition, onType, withFragment, fragmentSpread, withInlineFragment, inlineFragment
+@docs Fragment, fragment, TypeCondition, onType, fragmentSpread, inlineFragment
 
 ## Scalars
 
@@ -431,31 +428,31 @@ onType =
     AST.TypeCondition
 
 
-{-| Takes a constructor function for an Elm type you want to produce, and returns a `Spec` for an object without any fields yet specified. This function is intended to be used with other pipeline-friendly functions like `withField`, `withFragment`, and `withInlineFragment` to build up `Spec` values that correspond to object selection sets. When a successful response is decoded, the decoded value of each selection in the pipeline gets threaded in the same order as arguments to the given constructor function to produce the final result. For example:
+{-| Takes a constructor function for an Elm type you want to produce, and returns a `Spec` for an object without any fields yet specified. This function is intended to start a pipeline of calls to the `with` function to add field and fragment selections to the `Spec`. The order of arguments to the constructor function determines the order that the selections must be added. For example:
 
     type alias User =
         { name : String
-        , email : String
+        , isAdmin : Bool
         }
 
     userSummary : Spec NonNull ObjectType variableSource User
     userSummary =
         object User
-            |> withField "name" [] string
-            |> withField "email" [] string
+            |> with (field "name" [] string)
+            |> with (field "isAdmin" [] bool)
 
 The above `Spec` produces a GraphQL selection set that looks like the following:
 
     {
       name
-      email
+      isAdmin
     }
 
-The above `Spec` also provides a JSON decoder for decoding the corresponding part of the response, equivalent to the following:
+The same `Spec` also provides a JSON decoder for decoding part of the response, equivalent to the following:
 
     Json.Decode.map2 User
         (Json.Decode.field "name" Json.Decode.string)
-        (Json.Decode.field "email" Json.Decode.string)
+        (Json.Decode.field "isAdmin" Json.Decode.bool)
 -}
 object :
     (fieldValue -> a)
@@ -464,20 +461,7 @@ object ctr =
     Spec emptyObjectSpecifiedType (always (Decode.succeed ctr)) [] []
 
 
-{-| Adds a field to an object `Spec` pipeline. The first argument is the name of the field. The second argument is a list of `FieldOption` values, allowing you to optionally specify an alias, arguments, and/or directives for the field. The third argument is a `Spec` for the value of the field, and the final argument (usually threaded via `|>`) is the in-progress `Spec` corresponding to the parent object.
--}
-withField :
-    String
-    -> List (FieldOption variableSource)
-    -> Spec nullability coreType variableSource a
-    -> Spec NonNull ObjectType variableSource (a -> b)
-    -> Spec NonNull ObjectType variableSource b
-withField name fieldOptions spec fSpec =
-    fSpec
-        |> with (field name fieldOptions spec)
-
-
-{-| Constructs a `Spec` for an object with a single field. The arguments are the same as those for `withField`, except that the final `Spec` argument representing the parent object is omitted.
+{-| Constructs a `Spec` for an object with a single field. The first argument is the name of the field. The second argument is a list of `FieldOption` values, allowing you to optionally specify an alias, arguments, and/or directives for the field. The third argument is a `Spec` for the value of the field.
 -}
 field :
     String
@@ -525,28 +509,28 @@ field name fieldOptions (Spec sourceType fieldDecoder fieldVars fragments) =
             fragments
 
 
-{-| Specify an alias for a field, overriding the property key used for the field in the JSON response. Returns a `FieldOption` to be passed to `withField` or `field`.
+{-| Specify an alias for a field, overriding the property key used for the field in the JSON response. Returns a `FieldOption` to be passed to `field`.
 -}
 alias : String -> FieldOption variableSource
 alias =
     FieldAlias
 
 
-{-| Specify arguments for a field in the form of key-value pairs. Values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
+{-| Specify arguments for a field in the form of key-value pairs. Values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `field`.
 -}
 args : List ( String, Arg.Value variableSource ) -> FieldOption variableSource
 args =
     FieldArgs
 
 
-{-| Specify a directive for a field by passing the name of the directive (e.g. "skip" or "include") plus a list of arguments in the form of key-value pairs. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `withField` or `field`.
+{-| Specify a directive for a field by passing the name of the directive (e.g. "skip" or "include") plus a list of arguments in the form of key-value pairs. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value). Returns a `FieldOption` to be passed to `field`.
 -}
 directive : String -> List ( String, Arg.Value variableSource ) -> FieldOption variableSource
 directive =
     FieldDirective
 
 
-{-| Adds a fragment spread to an object `Spec` pipeline. Takes a `Fragment`, a list of optional directives, and a `Spec` of the parent object (intended to be threaded with `|>`). The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
+{-| Constructs a `Spec` for an object with a single fragment spread. Takes a `Fragment` and a list of optional directives. The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
 
 The fragment decoder's result type is wrapped in a `Maybe` to account for fragments with type constraints that do not hold for all values of the parent `Spec`. This means that the parent `Spec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
 
@@ -565,15 +549,15 @@ The fragment decoder's result type is wrapped in a `Maybe` to account for fragme
         fragment "employeeInfoFragment"
             (onType "Employee")
             (object EmployeeInfo
-                |> withField "employeeNumber" [] int
-                |> withField "title" [] string
+                |> with (field "employeeNumber" [] int)
+                |> with (field "title" [] string)
             )
 
     userSpec : Spec NonNull ObjectType variableSource User
     userSpec =
         object User
-            |> withField "name" [] sring
-            |> withFragment employeeInfoFragment []
+            |> with (field "name" [] string)
+            |> with (fragmentSpread employeeInfoFragment [])
 
 Including the above `userSpec` anywhere in a `Document` results in the following fragment definition being included in the serialized output:
 
@@ -588,18 +572,6 @@ Meanwhile, the selection set of `userSpec` itself would look like this wherever 
       name
       ...employeeInfoFragment
     }
--}
-withFragment :
-    Fragment variableSource a
-    -> List ( String, List ( String, Arg.Value variableSource ) )
-    -> Spec NonNull ObjectType variableSource (Maybe a -> b)
-    -> Spec NonNull ObjectType variableSource b
-withFragment fragment directives fSpec =
-    fSpec
-        |> with (fragmentSpread fragment directives)
-
-
-{-| Constructs a `Spec` for an object with a single fragment spread. The arguments are the same as those for `withFragment`, except that the final `Spec` argument representing the parent object is omitted.
 -}
 fragmentSpread :
     Fragment variableSource result
@@ -631,7 +603,7 @@ fragmentSpread ((Fragment { name, spec }) as fragment) directives =
             (mergeFragments [ fragmentAST fragment ] nestedFragments)
 
 
-{-| Adds an inline fragment to an object `Spec` pipeline. Takes an optional `TypeCondition`, a list of optional directives, a `Spec` representing the selection set of the inline fragment, and another `Spec` for the parent object being constructed (intended to be threaded in with `|>`). The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
+{-| Constructs a `Spec` for an object with a single inline fragment. Takes an optional `TypeCondition`, a list of optional directives, and a `Spec` representing the selection set of the inline fragment. The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
 
 The result type of the inline fragment's `Spec` is wrapped in a `Maybe` to account for type constraints that do not hold for all values of the parent `Spec`. This means that the parent `Spec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
 
@@ -648,13 +620,14 @@ The result type of the inline fragment's `Spec` is wrapped in a `Maybe` to accou
     userSpec : Spec NonNull ObjectType variableSource User
     userSpec =
         object User
-            |> withField "name" [] sring
-            |> withInlineFragment
-                (Just (onType "Employee"))
-                []
-                (object EmployeeInfo
-                    |> withField "employeeNumber" [] int
-                    |> withField "title" [] string
+            |> with (field "name" [] string)
+            |> with
+                (inlineFragment (Just (onType "Employee"))
+                    []
+                    (object EmployeeInfo
+                        |> with (field "employeeNumber" [] int)
+                        |> with (field "title" [] string)
+                    )
                 )
 
 The selection set of the above `userSpec` would look like the following wherever it's used:
@@ -666,19 +639,6 @@ The selection set of the above `userSpec` would look like the following wherever
         title
       }
     }
--}
-withInlineFragment :
-    Maybe TypeCondition
-    -> List ( String, List ( String, Arg.Value variableSource ) )
-    -> Spec NonNull ObjectType variableSource a
-    -> Spec NonNull ObjectType variableSource (Maybe a -> b)
-    -> Spec NonNull ObjectType variableSource b
-withInlineFragment maybeTypeCondition directives spec fSpec =
-    fSpec
-        |> with (inlineFragment maybeTypeCondition directives spec)
-
-
-{-| Constructs a `Spec` for an object with a single inline fragment. The arguments are the same as those for `withInlineFragment`, except that the final `Spec` argument representing the parent object is omitted.
 -}
 inlineFragment :
     Maybe TypeCondition
@@ -923,8 +883,8 @@ produce x =
         }
 
     object User
-        |> withField "name" [] (map String.length string)
-        |> withFeild "email" [] string
+        |> with (field "name" [] (map String.length string))
+        |> with (field "email" [] string)
 -}
 map : (a -> b) -> Spec nullability coreType variableSource a -> Spec nullability coreType variableSource b
 map f (Spec sourceType decoder vars fragments) =
@@ -944,7 +904,7 @@ map f (Spec sourceType decoder vars fragments) =
             (field "name" [] string)
             (field "adminAccess" [] bool)
 
-The above is equivalent to the "pipeline style" approach using the `object` and `withField` functions. However, the `mapN` functions can give you better error messages from the compiler when your types don't quite line up properly.
+The above is equivalent to the "pipeline style" approach using the `object` and `with` functions. However, the `mapN` functions can give you better error messages from the compiler when your types don't quite line up properly.
 
 You can also use the `mapN` functions to combine multiple fields in a response object into a single field in your decoded Elm type:
 
@@ -1125,9 +1085,7 @@ map8 f s1 s2 s3 s4 s5 s6 s7 s8 =
                     (field "firstName" [] string)
                     (field "lastName" [] string)
                 )
-            |> withField "adminAccess" [] bool
-
-This function forms the basis of `withField`, `withFragment`, and `withInlineFragment`, which are provided for convenience. In the above code, `withField "adminAccess" [] bool` is equivalent to `with (field "adminAccess" [] bool)`.
+            |> with (field "adminAccess" [] bool)
 -}
 with : Spec nullability coreType variableSource a -> Spec nullability coreType variableSource (a -> b) -> Spec nullability coreType variableSource b
 with specA specF =

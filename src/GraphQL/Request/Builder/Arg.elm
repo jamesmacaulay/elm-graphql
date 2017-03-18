@@ -15,7 +15,7 @@ module GraphQL.Request.Builder.Arg
         , getVariables
         )
 
-{-| The functions in this module let you construct argument values that you can pass to fields that you define using the `withField` and `field` functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
+{-| The functions in this module let you construct argument values that you can pass to fields and directives using the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
 @docs Value, variable, int, float, string, bool, true, false, null, object, list, getAST, getVariables
 -}
