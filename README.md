@@ -50,9 +50,11 @@ userQuery =
                 |> with (field "photos" [] (list photo))
         
         queryRoot =
-            field "user"
-                [ args [ ( "id", Arg.variable userIDVar ) ] ]
-                user
+            extract
+                (field "user"
+                    [ ( "id", Arg.variable userIDVar ) ]
+                    user
+                )
     in
         queryDocument queryRoot
 ```
