@@ -16,10 +16,18 @@ type alias FilmSummary =
 
 
 connectionNodes :
-    Spec nullability coreType variableSource result
-    -> Spec NonNull ObjectType variableSource (List result)
+    ValueSpec NonNull ObjectType variableSource result
+    -> ValueSpec NonNull ObjectType variableSource (List result)
 connectionNodes spec =
-    field "edges" [] (list (field "node" [] spec))
+    extract
+        (field "edges"
+            []
+            (list
+                (extract
+                    (field "node" [] spec)
+                )
+            )
+        )
 
 
 {-| The definition of `starWarsRequest` builds up a query request value that
@@ -64,20 +72,25 @@ starWarsRequest =
         planetsFragment =
             fragment "filmPlanetsFragment"
                 (onType "Film")
-                (field "planetConnection"
-                    [ args [ ( "first", Arg.variable pageSize ) ] ]
-                    (connectionNodes (field "name" [] (nullable string)))
+                (extract
+                    (field "planetConnection"
+                        [ ( "first", Arg.variable pageSize ) ]
+                        (connectionNodes (extract (field "name" [] (nullable string))))
+                    )
                 )
     in
-        field "film"
-            [ args [ ( "filmID", Arg.variable filmID ) ] ]
-            (map3 FilmSummary
-                (field "title" [] (nullable string))
-                (field "characterConnection"
-                    [ args [ ( "first", Arg.variable pageSize ) ] ]
-                    (connectionNodes (field "name" [] (nullable string)))
+        extract
+            (field "film"
+                [ ( "filmID", Arg.variable filmID ) ]
+                (object FilmSummary
+                    |> with (field "title" [] (nullable string))
+                    |> with
+                        (field "characterConnection"
+                            [ ( "first", Arg.variable pageSize ) ]
+                            (connectionNodes (extract (field "name" [] (nullable string))))
+                        )
+                    |> with (fragmentSpread planetsFragment)
                 )
-                (fragmentSpread planetsFragment [])
             )
             |> queryDocument
             |> request

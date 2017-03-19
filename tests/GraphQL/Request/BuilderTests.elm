@@ -83,33 +83,36 @@ secrecyUnitsVar =
         "metric"
 
 
-exampleQueryUserProjectsFragment : Fragment ExampleVariables (List ExampleQueryProject)
+exampleQueryUserProjectsFragment : Fragment ExampleVariables (Maybe (List ExampleQueryProject))
 exampleQueryUserProjectsFragment =
     fragment "userProjectsFragment"
         (onType "User")
-        (field "projects"
-            [ args [ ( "first", Arg.int 1 ) ]
-            , directive "include" [ ( "if", Arg.variable includeProjectsVar ) ]
-            ]
-            (list
-                (object ExampleQueryProject
-                    |> with (field "id" [] id)
-                    |> with (field "name" [] string)
-                    |> with (field "featured" [] bool)
-                    |> with
-                        (inlineFragment (Just (onType "SecretProject"))
-                            []
-                            (field "secrecyLevel"
-                                [ args [ ( "units", Arg.variable secrecyUnitsVar ) ] ]
-                                int
-                            )
+        (extract
+            (withDirectives [ ( "include", [ ( "if", Arg.variable includeProjectsVar ) ] ) ]
+                (field "projects"
+                    [ ( "first", Arg.int 1 ) ]
+                    (list
+                        (object ExampleQueryProject
+                            |> with (field "id" [] id)
+                            |> with (field "name" [] string)
+                            |> with (field "featured" [] bool)
+                            |> with
+                                (inlineFragment (Just (onType "SecretProject"))
+                                    (extract
+                                        (field "secrecyLevel"
+                                            [ ( "units", Arg.variable secrecyUnitsVar ) ]
+                                            int
+                                        )
+                                    )
+                                )
                         )
+                    )
                 )
             )
         )
 
 
-roleEnum : Spec NonNull EnumType variableSource ExampleRole
+roleEnum : ValueSpec NonNull EnumType variableSource ExampleRole
 roleEnum =
     enum
         [ ( "ADMIN", ExampleAdminRole )
@@ -122,12 +125,12 @@ exampleQueryRequest =
     object ExampleQueryRoot
         |> with
             (field "user"
-                [ args [ ( "id", Arg.variable userIdVar ) ] ]
+                [ ( "id", Arg.variable userIdVar ) ]
                 (object ExampleQueryUser
                     |> with (field "id" [] id)
                     |> with (field "name" [] string)
                     |> with (field "role" [] roleEnum)
-                    |> with (fragmentSpread exampleQueryUserProjectsFragment [])
+                    |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
                 )
             )
         |> queryDocument
