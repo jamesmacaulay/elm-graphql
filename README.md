@@ -33,7 +33,7 @@ type alias User =
 Then you build a query document:
 
 ```elm
-userQuery : Document Query { vars | userID : String } User
+userQuery : Document Query User { vars | userID : String }
 userQuery =
     let
         userIDVar =

@@ -124,22 +124,22 @@ type Request operationType result
         }
 
 
-{-| A `Document` represents a single-operation GraphQL request document, along with the information necessary to encode variable values used in the document and to decode successful responses from the server. The `variableSource` parameter is the type of value that must be provided when constructing a `Request` in order for the document's variable values to be obtained. The `operationType` and `result` parameters are the same as in the `Request` type.
+{-| A `Document` represents a single-operation GraphQL request document, along with the information necessary to encode variable values used in the document and to decode successful responses from the server. The `vars` parameter is the type of value that must be provided when constructing a `Request` in order for the document's variable values to be obtained. The `operationType` and `result` parameters are the same as in the `Request` type.
 -}
-type Document operationType variableSource result
+type Document operationType result vars
     = Document
-        { operation : Operation operationType variableSource result
+        { operation : Operation operationType result vars
         , ast : AST.Document
         , serialized : String
         }
 
 
-type Operation operationType variableSource result
+type Operation operationType result vars
     = Operation
         { operationType : OperationType operationType
         , name : Maybe String
-        , directives : List ( String, List ( String, Arg.Value variableSource ) )
-        , spec : ValueSpec NonNull ObjectType variableSource result
+        , directives : List ( String, List ( String, Arg.Value vars ) )
+        , spec : ValueSpec NonNull ObjectType result vars
         }
 
 
@@ -160,14 +160,14 @@ type Mutation
     = Mutation
 
 
-{-| A fragment definition. The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the fragment. The `result` parameter is the type of the Elm value obtained from the `Fragment`'s JSON decoder.
+{-| A fragment definition. The `vars` parameter specifies the type of the Elm value required to supply any variables used anywhere within the fragment. The `result` parameter is the type of the Elm value obtained from the `Fragment`'s JSON decoder.
 -}
-type Fragment variableSource result
+type Fragment result vars
     = Fragment
         { name : String
         , typeCondition : TypeCondition
-        , directives : List ( String, List ( String, Arg.Value variableSource ) )
-        , spec : ValueSpec NonNull ObjectType variableSource result
+        , directives : List ( String, List ( String, Arg.Value vars ) )
+        , spec : ValueSpec NonNull ObjectType result vars
         }
 
 
@@ -175,24 +175,24 @@ type Fragment variableSource result
 
 The `nullability` and `coreType` parameters are used by various functions in this module to ensure consistency when combining `ValueSpec` values. As such, they will probably only become relevant to you when reading error messages from the compiler, at which point they will hopefully make the situation easier to understand.
 
-The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `ValueSpec`.
-
 The `result` parameter specifies the type produced by the JSON decoder of the `ValueSpec`.
+
+The `vars` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `ValueSpec`.
 -}
-type ValueSpec nullability coreType variableSource result
-    = ValueSpec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
+type ValueSpec nullability coreType result vars
+    = ValueSpec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable vars)) (List AST.FragmentDefinitionInfo)
 
 
 {-| A specification for a GraphQL selection, to be added to an object `ValueSpec` using the `with` function.
 
 The `selectionType` can be either `Field`, `FragmentSpread`, or `InlineFragment`.
 
-The `variableSource` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `SelectionSpec`.
-
 The `result` parameter specifies the type produced by the JSON decoder of the `SelectionSpec`.
+
+The `vars` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `SelectionSpec`.
 -}
-type SelectionSpec selectionType variableSource result
-    = SelectionSpec AST.Selection (AST.SelectionSet -> Decoder result) (List (Variable variableSource)) (List AST.FragmentDefinitionInfo)
+type SelectionSpec selectionType result vars
+    = SelectionSpec AST.Selection (AST.SelectionSet -> Decoder result) (List (Variable vars)) (List AST.FragmentDefinitionInfo)
 
 
 {-| Indicates that a `SelectionSpec` represents a GraphQL field.
@@ -301,25 +301,20 @@ type ObjectType
     = ObjectType
 
 
-{-| An option for a field, returned by the `alias`, `args`, and `directive` functions.
--}
-type FieldOption variableSource
-    = FieldAlias String
-    | FieldArgs (List ( String, Arg.Value variableSource ))
-    | FieldDirective String (List ( String, Arg.Value variableSource ))
-
-
-{-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `variableSource` value that is used to obtain values for any variables used in the `Document`. If the `Document` does not use any variables, then you can pass in `()` or any other value as the `variableSource` and it will be ignored.
+{-| Turn a `Document` into a `Request` that can be sent to a server, by supplying a `vars` value that is used to obtain values for any variables used in the `Document`. If the `Document` does not use any variables, then you can pass in `()` or any other value as the `vars` and it will be ignored.
 -}
 request :
-    variableSource
-    -> Document operationType variableSource result
+    vars
+    -> Document operationType result vars
     -> Request operationType result
-request variableSource ((Document { operation, ast, serialized }) as document) =
+request vars ((Document { operation, ast, serialized }) as document) =
     Request
         { documentAST = ast
         , documentString = serialized
-        , variableValues = (documentVariables document |> Variable.extractValuesFrom variableSource)
+        , variableValues =
+            (documentVariables document
+                |> Variable.extractValuesFrom vars
+            )
         , responseDataDecoder = documentResponseDecoder document
         }
 
@@ -356,7 +351,7 @@ responseDataDecoder (Request { responseDataDecoder }) =
     responseDataDecoder
 
 
-fragmentDefinitionsFromOperation : Operation operationType variableSource result -> List AST.FragmentDefinitionInfo
+fragmentDefinitionsFromOperation : Operation operationType result vars -> List AST.FragmentDefinitionInfo
 fragmentDefinitionsFromOperation (Operation { spec }) =
     let
         (ValueSpec _ _ _ fragments) =
@@ -365,7 +360,7 @@ fragmentDefinitionsFromOperation (Operation { spec }) =
         fragments
 
 
-document : Operation operationType variableSource result -> Document operationType variableSource result
+document : Operation operationType result vars -> Document operationType result vars
 document operation =
     let
         fragmentDefinitions =
@@ -387,8 +382,8 @@ document operation =
 {-| Take a `ValueSpec` and return a `Document` for a single query operation. The argument must be a `NonNull Object` ValueSpec, because it represents the root-level selection set of the query operation.
 -}
 queryDocument :
-    ValueSpec NonNull ObjectType variableSource result
-    -> Document Query variableSource result
+    ValueSpec NonNull ObjectType result vars
+    -> Document Query result vars
 queryDocument spec =
     document
         (Operation
@@ -408,8 +403,8 @@ queryOperationType =
 {-| Take a `ValueSpec` and return a `Document` for a single mutation operation. The argument must be a `NonNull Object` ValueSpec, because it represents the root-level selection set of the mutation operation.
 -}
 mutationDocument :
-    ValueSpec NonNull ObjectType variableSource result
-    -> Document Mutation variableSource result
+    ValueSpec NonNull ObjectType result vars
+    -> Document Mutation result vars
 mutationDocument spec =
     document
         (Operation
@@ -431,8 +426,8 @@ mutationOperationType =
 fragment :
     String
     -> TypeCondition
-    -> ValueSpec NonNull ObjectType variableSource result
-    -> Fragment variableSource result
+    -> ValueSpec NonNull ObjectType result vars
+    -> Fragment result vars
 fragment name typeCondition spec =
     Fragment
         { name = name
@@ -456,7 +451,7 @@ onType =
         , isAdmin : Bool
         }
 
-    userSummary : ValueSpec NonNull ObjectType variableSource User
+    userSummary : ValueSpec NonNull ObjectType User vars
     userSummary =
         object User
             |> with (field "name" [] string)
@@ -477,7 +472,7 @@ The same `ValueSpec` also provides a JSON decoder for decoding part of the respo
 -}
 object :
     (fieldValue -> a)
-    -> ValueSpec NonNull ObjectType variableSource (fieldValue -> a)
+    -> ValueSpec NonNull ObjectType (fieldValue -> a) vars
 object ctr =
     ValueSpec emptyObjectSpecifiedType (always (Decode.succeed ctr)) [] []
 
@@ -489,7 +484,7 @@ object ctr =
         , projectIDs : List String
         }
 
-    userSpec : ValueSpec NonNull ObjectType variableSource User
+    userSpec : ValueSpec NonNull ObjectType User vars
     userSpec =
         object User
             |> with (field "name" [])
@@ -501,7 +496,9 @@ object ctr =
 
 This helps you avoid having extra levels of nesting that you don't need in your result types.
 -}
-extract : SelectionSpec selectionType variableSource result -> ValueSpec NonNull ObjectType variableSource result
+extract :
+    SelectionSpec selectionType result vars
+    -> ValueSpec NonNull ObjectType result vars
 extract (SelectionSpec selectionAST decoder vars fragments) =
     ValueSpec
         (SpecifiedType
@@ -520,9 +517,9 @@ extract (SelectionSpec selectionAST decoder vars fragments) =
 -}
 field :
     String
-    -> List ( String, Arg.Value variableSource )
-    -> ValueSpec nullability coreType variableSource result
-    -> SelectionSpec Field variableSource result
+    -> List ( String, Arg.Value vars )
+    -> ValueSpec nullability coreType result vars
+    -> SelectionSpec Field result vars
 field name arguments (ValueSpec sourceType fieldDecoder fieldVars fragments) =
     let
         astFieldInfo =
@@ -553,12 +550,12 @@ field name arguments (ValueSpec sourceType fieldDecoder fieldVars fragments) =
             fragments
 
 
-updateInfoWithDirectives : List ( String, List ( String, Arg.Value variableSource ) ) -> { info | directives : List AST.Directive } -> { info | directives : List AST.Directive }
+updateInfoWithDirectives : List ( String, List ( String, Arg.Value vars ) ) -> { info | directives : List AST.Directive } -> { info | directives : List AST.Directive }
 updateInfoWithDirectives directives info =
     { info | directives = List.map directiveAST directives }
 
 
-selectionASTWithDirectives : List ( String, List ( String, Arg.Value variableSource ) ) -> AST.Selection -> AST.Selection
+selectionASTWithDirectives : List ( String, List ( String, Arg.Value vars ) ) -> AST.Selection -> AST.Selection
 selectionASTWithDirectives directives selection =
     case selection of
         AST.Field info ->
@@ -574,9 +571,9 @@ selectionASTWithDirectives directives selection =
 {-| Specify a list of directives to use with a GraphQL selection. Each directive takes the form of a tuple of `(directiveName, args)`. The returned `SelectionSpec`'s decoder wraps the result type in a `Maybe` to account for the fact that the server may omit the selection because of the directives.
 -}
 withDirectives :
-    List ( String, List ( String, Arg.Value variableSource ) )
-    -> SelectionSpec selectionType variableSource result
-    -> SelectionSpec selectionType variableSource (Maybe result)
+    List ( String, List ( String, Arg.Value vars ) )
+    -> SelectionSpec selectionType result vars
+    -> SelectionSpec selectionType (Maybe result) vars
 withDirectives directives (SelectionSpec ast decoder vars fragments) =
     SelectionSpec
         (selectionASTWithDirectives directives ast)
@@ -592,13 +589,13 @@ withDirectives directives (SelectionSpec ast decoder vars fragments) =
         , name : String
         }
 
-    userNameFragment : Fragment vars (Maybe String)
+    userNameFragment : Fragment (Maybe String) vars
     userNameFragment =
         fragment "userNameFragment"
             (onType "User")
             (extract (field "name" [] string))
 
-    userSpec : ValueSpec NonNull ObjectType vars User
+    userSpec : ValueSpec NonNull ObjectType User vars
     userSpec =
         object User
             |> with (field "id" [] id)
@@ -609,8 +606,8 @@ As long as the above `userSpec` is only ever used for selection sets on the sche
 Depending on the semantics of the GraphQL schema you're working with, it may also be safe to use in some cases where fields are nullable in the schema but you know that in certain cases they are predictably non-null.
 -}
 assume :
-    SelectionSpec selectionType variableSource (Maybe result)
-    -> SelectionSpec selectionType variableSource result
+    SelectionSpec selectionType (Maybe result) vars
+    -> SelectionSpec selectionType result vars
 assume (SelectionSpec ast decoder vars fragments) =
     SelectionSpec
         ast
@@ -636,7 +633,7 @@ assume (SelectionSpec ast decoder vars fragments) =
         , username2 : String
         }
 
-    querySpec : ValueSpec NonNull ObjectType variableSource QueryRoot
+    querySpec : ValueSpec NonNull ObjectType QueryRoot vars
     querySpec =
         object QueryRoot
             |> with
@@ -656,8 +653,8 @@ assume (SelectionSpec ast decoder vars fragments) =
 -}
 aliasAs :
     String
-    -> SelectionSpec Field variableSource result
-    -> SelectionSpec Field variableSource result
+    -> SelectionSpec Field result vars
+    -> SelectionSpec Field result vars
 aliasAs responseKey ((SelectionSpec ast decoder vars fragments) as selection) =
     case ast of
         AST.Field info ->
@@ -673,7 +670,7 @@ aliasAs responseKey ((SelectionSpec ast decoder vars fragments) as selection) =
 
 {-| Constructs a `SelectionSpec` for a fragment spread that you can add to an object `ValueSpec` with the `with` function. Takes a `Fragment` and a list of optional directives. The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
 
-The fragment decoder's result type is wrapped in a `Maybe` to account for fragments with type constraints that do not hold for all values of the parent `ValueSpec`. This means that the parent `ValueSpec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
+The fragment decoder's result type is wrapped in a `Maybe` to account for fragments with type constraints that do not hold for all values of the parent `ValueSpec`. This means that normally the parent `ValueSpec`'s constructor function must accept a `Maybe` of the fragment result as its next argument:
 
     type alias User =
         { name : String
@@ -685,7 +682,7 @@ The fragment decoder's result type is wrapped in a `Maybe` to account for fragme
         , title : String
         }
 
-    employeeInfoFragment : Fragment variableSource EmployeeInfo
+    employeeInfoFragment : Fragment EmployeeInfo vars
     employeeInfoFragment =
         fragment "employeeInfoFragment"
             (onType "Employee")
@@ -694,11 +691,13 @@ The fragment decoder's result type is wrapped in a `Maybe` to account for fragme
                 |> with (field "title" [] string)
             )
 
-    userSpec : ValueSpec NonNull ObjectType variableSource User
+    userSpec : ValueSpec NonNull ObjectType User vars
     userSpec =
         object User
             |> with (field "name" [] string)
             |> with (fragmentSpread employeeInfoFragment [])
+
+In cases where you know for sure that a fragment will successfully produce values in the response for a given `ValueSpec`, you can use the `assume` function to unwrap the `Maybe` for you.
 
 Including the above `userSpec` anywhere in a `Document` results in the following fragment definition being included in the serialized output:
 
@@ -715,8 +714,8 @@ Meanwhile, the selection set of `userSpec` itself would look like this wherever 
     }
 -}
 fragmentSpread :
-    Fragment variableSource result
-    -> SelectionSpec FragmentSpread variableSource (Maybe result)
+    Fragment result vars
+    -> SelectionSpec FragmentSpread (Maybe result) vars
 fragmentSpread ((Fragment { name, spec }) as fragment) =
     let
         astFragmentSpreadInfo =
@@ -748,7 +747,7 @@ The result type of the inline fragment's `SelectionSpec` is wrapped in a `Maybe`
         , title : String
         }
 
-    userSpec : ValueSpec NonNull ObjectType variableSource User
+    userSpec : ValueSpec NonNull ObjectType User vars
     userSpec =
         object User
             |> with (field "name" [] string)
@@ -773,8 +772,8 @@ The selection set of the above `userSpec` would look like the following wherever
 -}
 inlineFragment :
     Maybe TypeCondition
-    -> ValueSpec NonNull ObjectType variableSource result
-    -> SelectionSpec InlineFragment variableSource (Maybe result)
+    -> ValueSpec NonNull ObjectType result vars
+    -> SelectionSpec InlineFragment (Maybe result) vars
 inlineFragment maybeTypeCondition spec =
     let
         (ValueSpec sourceType decoder vars fragments) =
@@ -793,55 +792,42 @@ inlineFragment maybeTypeCondition spec =
             fragments
 
 
-varsFromArguments : List ( String, Arg.Value variableSource ) -> List (Variable variableSource)
+varsFromArguments : List ( String, Arg.Value vars ) -> List (Variable vars)
 varsFromArguments arguments =
     List.concatMap (Arg.getVariables << Tuple.second) arguments
 
 
-varsFromFieldOption : FieldOption variableSource -> List (Variable variableSource)
-varsFromFieldOption fieldOption =
-    case fieldOption of
-        FieldAlias _ ->
-            []
-
-        FieldArgs arguments ->
-            varsFromArguments arguments
-
-        FieldDirective _ arguments ->
-            varsFromArguments arguments
-
-
 {-| A `ValueSpec` for the GraphQL `Int` type that decodes to an Elm `Int`.
 -}
-int : ValueSpec NonNull IntType variableSource Int
+int : ValueSpec NonNull IntType Int vars
 int =
     primitiveSpec IntType Decode.int
 
 
 {-| A `ValueSpec` for the GraphQL `Float` type that decodes to an Elm `Float`.
 -}
-float : ValueSpec NonNull FloatType variableSource Float
+float : ValueSpec NonNull FloatType Float vars
 float =
     primitiveSpec FloatType Decode.float
 
 
 {-| A `ValueSpec` for the GraphQL `String` type that decodes to an Elm `String`.
 -}
-string : ValueSpec NonNull StringType variableSource String
+string : ValueSpec NonNull StringType String vars
 string =
     primitiveSpec StringType Decode.string
 
 
 {-| A `ValueSpec` for the GraphQL `Boolean` type that decodes to an Elm `Bool`.
 -}
-bool : ValueSpec NonNull BooleanType variableSource Bool
+bool : ValueSpec NonNull BooleanType Bool vars
 bool =
     primitiveSpec BooleanType Decode.bool
 
 
 {-| A `ValueSpec` for the GraphQL `ID` type that decodes to an Elm `String`.
 -}
-id : ValueSpec NonNull IdType variableSource String
+id : ValueSpec NonNull IdType String vars
 id =
     primitiveSpec IdType Decode.string
 
@@ -853,7 +839,7 @@ id =
         | MemberAccess
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType variableSource AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
     userAccessLevelField =
         (field "accessLevel"
             []
@@ -864,7 +850,7 @@ id =
             )
         )
 -}
-enum : List ( String, result ) -> ValueSpec NonNull EnumType variableSource result
+enum : List ( String, result ) -> ValueSpec NonNull EnumType result vars
 enum =
     enumWithFallback
         (\label ->
@@ -880,7 +866,7 @@ enum =
         | UnknownAccess String
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType variableSource AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
     userAccessLevelField =
         (field "accessLevel"
             []
@@ -891,7 +877,10 @@ enum =
             )
         )
 -}
-enumWithDefault : (String -> result) -> List ( String, result ) -> ValueSpec NonNull EnumType variableSource result
+enumWithDefault :
+    (String -> result)
+    -> List ( String, result )
+    -> ValueSpec NonNull EnumType result vars
 enumWithDefault ctr =
     enumWithFallback
         (\label ->
@@ -899,7 +888,10 @@ enumWithDefault ctr =
         )
 
 
-enumWithFallback : (String -> Decoder a) -> List ( String, a ) -> ValueSpec NonNull EnumType variableSource a
+enumWithFallback :
+    (String -> Decoder result)
+    -> List ( String, result )
+    -> ValueSpec NonNull EnumType result vars
 enumWithFallback fallbackDecoder labelledValues =
     let
         decoderFromLabel =
@@ -925,7 +917,11 @@ enumWithFallback fallbackDecoder labelledValues =
             []
 
 
-decoderFromEnumLabel : (String -> Decoder a) -> List ( String, a ) -> String -> Decoder a
+decoderFromEnumLabel :
+    (String -> Decoder a)
+    -> List ( String, a )
+    -> String
+    -> Decoder a
 decoderFromEnumLabel fallbackDecoder labelledValues =
     let
         valueFromLabel =
@@ -945,8 +941,8 @@ decoderFromEnumLabel fallbackDecoder labelledValues =
 {-| Constructs a `ValueSpec` for a GraphQL List type. Takes any kind of `ValueSpec` to use for the items of the list, and returns a `ValueSpec` that decodes into an Elm `List`.
 -}
 list :
-    ValueSpec itemNullability itemType variableSource result
-    -> ValueSpec NonNull (ListType itemNullability itemType) variableSource (List result)
+    ValueSpec itemNullability itemType result vars
+    -> ValueSpec NonNull (ListType itemNullability itemType) (List result) vars
 list (ValueSpec itemType decoder vars fragments) =
     ValueSpec
         (SpecifiedType
@@ -965,7 +961,9 @@ list (ValueSpec itemType decoder vars fragments) =
 
 Note that the default `nullability` of a `ValueSpec` in this module is `NonNull`. This is the opposite of the situation in the GraphQL schema language, whose types must be annotated with the Non-Null (`!`) modifier in order to specify that their values will never be `null`.
 -}
-nullable : ValueSpec NonNull coreType variableSource result -> ValueSpec Nullable coreType variableSource (Maybe result)
+nullable :
+    ValueSpec NonNull coreType result vars
+    -> ValueSpec Nullable coreType (Maybe result) vars
 nullable (ValueSpec sourceType decoder vars fragments) =
     case sourceType of
         SpecifiedType typeInfo ->
@@ -991,21 +989,21 @@ emptyObjectSpecifiedType =
 
 {-| Construct a `ValueSpec` that always decodes to the given `result`, without using anything from the response value.
 -}
-produce : result -> ValueSpec nullability coreType variableSource result
+produce : result -> ValueSpec nullability coreType result vars
 produce x =
     ValueSpec AnyType (always (Decode.succeed x)) [] []
 
 
-map : (a -> b) -> ValueSpec nullability coreType variableSource a -> ValueSpec nullability coreType variableSource b
+map : (a -> b) -> ValueSpec nullability coreType a vars -> ValueSpec nullability coreType b vars
 map f (ValueSpec sourceType decoder vars fragments) =
     ValueSpec sourceType (decoder >> Decode.map f) vars fragments
 
 
 map2 :
     (a -> b -> c)
-    -> ValueSpec nullability coreType variableSource a
-    -> ValueSpec nullability coreType variableSource b
-    -> ValueSpec nullability coreType variableSource c
+    -> ValueSpec nullability coreType a vars
+    -> ValueSpec nullability coreType b vars
+    -> ValueSpec nullability coreType c vars
 map2 f (ValueSpec sourceTypeA decoderA varsA fragmentsA) (ValueSpec sourceTypeB decoderB varsB fragmentsB) =
     let
         joinedSourceType =
@@ -1030,48 +1028,18 @@ map2 f (ValueSpec sourceTypeA decoderA varsA fragmentsA) (ValueSpec sourceTypeB 
         , adminAccess : Bool
         }
 
-    joinName : String -> String -> String
-    joinName first last =
-        first ++ " " ++ last
-
-    userSpec : ValueSpec NonNull ObjectType variableSource User
+    userSpec : ValueSpec NonNull ObjectType User vars
     userSpec =
         object User
-            |> andMap
-                (map2 joinName
-                    (field "firstName" [] string)
-                    (field "lastName" [] string)
-                )
-            |> andMap (field "adminAccess" [] bool)
+            |> with (field "name" [] string)
+            |> with (field "adminAccess" [] bool)
 -}
-with : SelectionSpec selectionType variableSource a -> ValueSpec NonNull ObjectType variableSource (a -> b) -> ValueSpec NonNull ObjectType variableSource b
+with :
+    SelectionSpec selectionType a vars
+    -> ValueSpec NonNull ObjectType (a -> b) vars
+    -> ValueSpec NonNull ObjectType b vars
 with selection objectSpec =
     map2 (<|) objectSpec (extract selection)
-
-
-applyFieldOption : FieldOption variableSource -> AST.FieldInfo -> AST.FieldInfo
-applyFieldOption fieldOption field =
-    case fieldOption of
-        FieldAlias name ->
-            { field | alias = Just name }
-
-        FieldArgs arguments ->
-            { field
-                | arguments =
-                    field.arguments
-                        ++ List.map (Tuple.mapSecond Arg.getAST) arguments
-            }
-
-        FieldDirective name arguments ->
-            { field
-                | directives =
-                    field.directives
-                        ++ [ AST.Directive
-                                { name = name
-                                , arguments = List.map (Tuple.mapSecond Arg.getAST) arguments
-                                }
-                           ]
-            }
 
 
 enumJoin : EnumType -> EnumType -> EnumType
@@ -1122,7 +1090,7 @@ selectionSetFromSourceType sourceType =
             emptySelectionSet
 
 
-selectionSetFromSpec : ValueSpec nullability coreType variableSource result -> AST.SelectionSet
+selectionSetFromSpec : ValueSpec nullability coreType result vars -> AST.SelectionSet
 selectionSetFromSpec (ValueSpec sourceType _ _ _) =
     selectionSetFromSourceType sourceType
 
@@ -1132,7 +1100,7 @@ emptySelectionSet =
     AST.SelectionSet []
 
 
-primitiveSpec : coreType -> Decoder result -> ValueSpec NonNull coreType variableSource result
+primitiveSpec : coreType -> Decoder result -> ValueSpec NonNull coreType result vars
 primitiveSpec coreType decoder =
     ValueSpec
         (SpecifiedType
@@ -1148,7 +1116,7 @@ primitiveSpec coreType decoder =
 
 
 variableDefinitionsAST :
-    ValueSpec nullability coreType variableSource result
+    ValueSpec nullability coreType result vars
     -> List AST.VariableDefinition
 variableDefinitionsAST (ValueSpec _ _ vars _) =
     List.map Variable.toDefinitionAST vars
@@ -1174,7 +1142,7 @@ operationTypeAST operationType =
             AST.Mutation
 
 
-operationAST : Operation operationType variableSource result -> AST.OperationDefinitionInfo
+operationAST : Operation operationType result vars -> AST.OperationDefinitionInfo
 operationAST (Operation { operationType, name, directives, spec }) =
     { operationType = operationTypeAST operationType
     , name = name
@@ -1184,7 +1152,7 @@ operationAST (Operation { operationType, name, directives, spec }) =
     }
 
 
-fragmentAST : Fragment variableSource result -> AST.FragmentDefinitionInfo
+fragmentAST : Fragment result vars -> AST.FragmentDefinitionInfo
 fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     { name = name
     , typeCondition = typeCondition
@@ -1193,12 +1161,12 @@ fragmentAST (Fragment { name, typeCondition, directives, spec }) =
     }
 
 
-varsFromDirectives : List ( String, List ( String, Arg.Value variableSource ) ) -> List (Variable variableSource)
+varsFromDirectives : List ( String, List ( String, Arg.Value vars ) ) -> List (Variable vars)
 varsFromDirectives =
     List.concatMap (Tuple.second >> varsFromArguments)
 
 
-fragmentVariables : Fragment variableSource result -> List (Variable variableSource)
+fragmentVariables : Fragment result vars -> List (Variable vars)
 fragmentVariables (Fragment { directives, spec }) =
     let
         directiveVariables =
@@ -1210,18 +1178,18 @@ fragmentVariables (Fragment { directives, spec }) =
         mergeVariables directiveVariables specVariables
 
 
-documentAST : Document operationType variableSource result -> AST.Document
+documentAST : Document operationType result vars -> AST.Document
 documentAST (Document { ast }) =
     ast
 
 
-documentString : Document operationType variableSource result -> String
+documentString : Document operationType result vars -> String
 documentString (Document { serialized }) =
     serialized
 
 
 documentResponseDecoder :
-    Document operationType variableSource result
+    Document operationType result vars
     -> Decoder result
 documentResponseDecoder (Document { operation }) =
     let
@@ -1231,7 +1199,7 @@ documentResponseDecoder (Document { operation }) =
         specDecoder spec
 
 
-documentVariables : Document operationType variableSource result -> List (Variable variableSource)
+documentVariables : Document operationType result vars -> List (Variable vars)
 documentVariables (Document { operation }) =
     let
         (Operation { spec }) =
@@ -1243,7 +1211,7 @@ documentVariables (Document { operation }) =
         vars
 
 
-specDecoder : ValueSpec nullability coreType variableSource result -> Decoder result
+specDecoder : ValueSpec nullability coreType result vars -> Decoder result
 specDecoder (ValueSpec sourceType decoderFromSelectionSet _ _) =
     sourceType
         |> selectionSetFromSourceType

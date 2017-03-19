@@ -83,7 +83,7 @@ secrecyUnitsVar =
         "metric"
 
 
-exampleQueryUserProjectsFragment : Fragment ExampleVariables (Maybe (List ExampleQueryProject))
+exampleQueryUserProjectsFragment : Fragment (Maybe (List ExampleQueryProject)) ExampleVariables
 exampleQueryUserProjectsFragment =
     fragment "userProjectsFragment"
         (onType "User")
@@ -112,7 +112,7 @@ exampleQueryUserProjectsFragment =
         )
 
 
-roleEnum : ValueSpec NonNull EnumType variableSource ExampleRole
+roleEnum : ValueSpec NonNull EnumType ExampleRole vars
 roleEnum =
     enum
         [ ( "ADMIN", ExampleAdminRole )

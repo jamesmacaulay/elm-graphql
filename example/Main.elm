@@ -16,8 +16,8 @@ type alias FilmSummary =
 
 
 connectionNodes :
-    ValueSpec NonNull ObjectType variableSource result
-    -> ValueSpec NonNull ObjectType variableSource (List result)
+    ValueSpec NonNull ObjectType result vars
+    -> ValueSpec NonNull ObjectType (List result) vars
 connectionNodes spec =
     extract
         (field "edges"

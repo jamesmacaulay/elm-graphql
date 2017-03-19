@@ -48,31 +48,31 @@ type NonNull
     = NonNull
 
 
-{-| This type represents a GraphQL variable definition, and includes enough information to extract a conforming GraphQL value from some arbitrary `variableSource` type supplied by your Elm code.
+{-| This type represents a GraphQL variable definition, and includes enough information to extract a conforming GraphQL value from some arbitrary `source` type supplied by your Elm code.
 -}
-type Variable variableSource
-    = RequiredVariable String TypeRef (variableSource -> AST.ConstantValue)
-    | OptionalVariable String TypeRef (variableSource -> Maybe AST.ConstantValue) AST.ConstantValue
+type Variable source
+    = RequiredVariable String TypeRef (source -> AST.ConstantValue)
+    | OptionalVariable String TypeRef (source -> Maybe AST.ConstantValue) AST.ConstantValue
 
 
 {-| Describes a single field of a GraphQL Input Object type.
 -}
-type Field variableSource
-    = Field String TypeRef (variableSource -> AST.ConstantValue)
+type Field source
+    = Field String TypeRef (source -> AST.ConstantValue)
 
 
-{-| Construct a `Variable` that has no default value, and therefore must extract its value from a `variableSource`. The first argument is the name of the variable that appears in the GraphQL request document, and must be unique for that document. It should _not_ include any leading dollar sign (`$`). The second argument is a function that extracts a value of the required type from a `variableSource`. The third argument is a `VariableSpec` that describes the type of the variable.
+{-| Construct a `Variable` that has no default value, and therefore must extract its value from a `source`. The first argument is the name of the variable that appears in the GraphQL request document, and must be unique for that document. It should _not_ include any leading dollar sign (`$`). The second argument is a function that extracts a value of the required type from a `source`. The third argument is a `VariableSpec` that describes the type of the variable.
 -}
-required : String -> (variableSource -> a) -> VariableSpec nullability a -> Variable variableSource
+required : String -> (source -> a) -> VariableSpec nullability a -> Variable source
 required name extract (VariableSpec _ typeRef convert) =
     RequiredVariable name typeRef (extract >> convert)
 
 
-{-| Construct a `Variable` that has a default value, and therefore its `variableSource` may or may not provide a value for it. The first three arguments are the same as for the `required` function, except that the function to extract a value from `variableSource` must return a `Maybe` of the type expected by the `VariableSpec`. The last argument is a default value for the variable.
+{-| Construct a `Variable` that has a default value, and therefore its `source` may or may not provide a value for it. The first three arguments are the same as for the `required` function, except that the function to extract a value from `source` must return a `Maybe` of the type expected by the `VariableSpec`. The last argument is a default value for the variable.
 
 Note that the `VariableSpec` may be either `Nullable` or `NonNull`, but in both cases the variable definition is serialized _without_ a Non-Null modifier in the GraphQL request document, because optional variables may not be Non-Null in GraphQL. If you pass a `NonNull` `VariableSpec` into this function, it just means that you won't be able to represent an explicit `null` for the variable's value. If instead you pass a `Nullable` `VariableSpec` into this function, you will be able to represent an explicit `null` value for the variable, but you'll also have to deal with double-wrapped `Maybe` values – a missing value is then represented as a `Nothing` returned from your extraction function, and a `null` value is represented as `Just Nothing`. For this reason, it is recommended that you stick to `NonNull` `VariableSpec` values here unless you really need to be able to pass `null` explictly to the GraphQL server.
 -}
-optional : String -> (variableSource -> Maybe a) -> VariableSpec nullability a -> a -> Variable variableSource
+optional : String -> (source -> Maybe a) -> VariableSpec nullability a -> a -> Variable source
 optional name extractMaybe (VariableSpec nullability typeRef convert) defaultValue =
     OptionalVariable name (TypeRef.nullable typeRef) (extractMaybe >> Maybe.map convert) (convert defaultValue)
 
@@ -114,7 +114,7 @@ id =
 
 {-| Transforms a `NonNull` `VariableSpec` into one that allows `null` values, extracting its value from a `Maybe`.
 -}
-nullable : VariableSpec NonNull variableSource -> VariableSpec Nullable (Maybe variableSource)
+nullable : VariableSpec NonNull source -> VariableSpec Nullable (Maybe source)
 nullable (VariableSpec NonNull typeRef convert) =
     VariableSpec
         Nullable
@@ -124,7 +124,7 @@ nullable (VariableSpec NonNull typeRef convert) =
 
 {-| Constructs a `VariableSpec` for a GraphQL List type out of another `VariableSpec` that represents its items.
 -}
-list : VariableSpec nullability variableSource -> VariableSpec NonNull (List variableSource)
+list : VariableSpec nullability source -> VariableSpec NonNull (List source)
 list (VariableSpec _ typeRef convert) =
     VariableSpec
         NonNull
@@ -149,7 +149,7 @@ list (VariableSpec _ typeRef convert) =
                 ]
             )
 -}
-object : String -> List (Field variableSource) -> VariableSpec NonNull variableSource
+object : String -> List (Field source) -> VariableSpec NonNull source
 object typeName fields =
     VariableSpec
         NonNull
@@ -168,12 +168,12 @@ field name extract (VariableSpec _ typeRef convert) =
     Field name typeRef (extract >> convert)
 
 
-fieldTuple : variableSource -> Field variableSource -> ( String, AST.ConstantValue )
+fieldTuple : source -> Field source -> ( String, AST.ConstantValue )
 fieldTuple source (Field name _ convert) =
     ( name, convert source )
 
 
-valueFromSource : variableSource -> Variable variableSource -> Maybe ( String, AST.ConstantValue )
+valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue )
 valueFromSource source var =
     case var of
         RequiredVariable _ _ f ->
@@ -190,7 +190,7 @@ valueFromSource source var =
 
 {-| Returns the name of a `Variable` as it appears in a GraphQL request document, without any leading dollar sign (`$`).
 -}
-name : Variable variableSource -> String
+name : Variable source -> String
 name var =
     case var of
         RequiredVariable name _ _ ->
@@ -202,7 +202,7 @@ name var =
 
 {-| Returns the AST (abstract syntax tree) representation of a `Variable`.
 -}
-toDefinitionAST : Variable variableSource -> AST.VariableDefinition
+toDefinitionAST : Variable source -> AST.VariableDefinition
 toDefinitionAST var =
     case var of
         RequiredVariable name typeRef _ ->
@@ -220,8 +220,8 @@ toDefinitionAST var =
                 }
 
 
-{-| Extracts generic values from a `variableSource` and a `List` of zero or more compatible `Variable`s.
+{-| Extracts generic values from a `source` and a `List` of zero or more compatible `Variable`s.
 -}
-extractValuesFrom : variableSource -> List (Variable variableSource) -> List ( String, AST.ConstantValue )
+extractValuesFrom : source -> List (Variable source) -> List ( String, AST.ConstantValue )
 extractValuesFrom source vars =
     List.filterMap (valueFromSource source) vars
