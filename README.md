@@ -1,18 +1,14 @@
-## [pre-release] jamesmacaulay/elm-graphql
+## jamesmacaulay/elm-graphql
 
 A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written entirely in Elm.
 
-(Not to be confused with [jahewson/elm-graphql](https://github.com/jahewson/elm-graphql), which is a great project that takes a different approach.)
+The goal of this package is to provide a really good interface for working directly with GraphQL queries and schemas in Elm. Right now the main offering of the package is an interface for building up nested queries and mutations in a way that also builds up a decoder capable of decoding successful responses to the request. The package also provides a module for sending these requests to a GraphQL server over HTTP and decoding the responses accordingly.
 
-This library is still a work in progress, but the goal is to provide a really good interface for working directly with GraphQL queries and schemas in Elm.
-
-Here's [a minimal end-to-end example](https://github.com/jamesmacaulay/elm-graphql/tree/master/example) that builds a query, sends it to a server, and decodes the response.
-
-The interfaces provided by this library are still unstable and I expect them to change before I publish this library to the elm package repository.
+Here's [an end-to-end example](https://github.com/jamesmacaulay/elm-graphql/tree/master/example) that builds a query, sends it to a server, and decodes the response.
 
 ### Building requests
 
-Building up a GraphQL query with this library feels a lot like building a JSON decoder. First you define type aliases for each of the nested record types you want to construct out of the response:
+Building up a GraphQL query with this package feels a lot like building a JSON decoder, especially if you are familiar with the [elm-decode-pipeline](http://package.elm-lang.org/packages/NoRedInk/elm-decode-pipeline/3.0.0) package. First you define type aliases for each of the nested record types you want to construct out of the response:
 
 
 ```elm
@@ -116,3 +112,12 @@ When it is decoded with the help of the decoder contained in `userQuery`, it bec
     ]
 }
 ```
+
+### Future plans for this package
+
+There are a lot of things that this package can't do right now, but might do in the future. What gets done depends on how the package ends up being used, and how much demand there is for each feature. Here are some likely possibilities:
+
+* generating code from a GraphQL schema to help build valid queries
+* providing functions to validate a query against a target schema
+* leveraging Relay-compliant schemas to cache response data and transform queries so that the client only asks the server for what it doesn't have already
+* providing an interface to implement a GraphQL schema that you can run queries against
