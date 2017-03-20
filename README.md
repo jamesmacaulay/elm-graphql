@@ -1,3 +1,5 @@
+<img src="elm-graphql.png" alt="elm-graphql logo" width="40%" align="right">
+
 ## jamesmacaulay/elm-graphql
 
 A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written entirely in Elm.
