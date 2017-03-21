@@ -4,7 +4,9 @@ module GraphQL.Client.Http
         , DocumentLocation
         , Error(..)
         , sendQuery
+        , sendQueryWithHeaders
         , sendMutation
+        , sendMutationWithHeaders
         )
 
 {-| The functions in this module let you perform HTTP requests to conventional GraphQL server endpoints.
@@ -45,9 +47,10 @@ type Error
 
 send :
     String
+    -> List (Http.Header)
     -> Builder.Request operationType result
     -> Task Error result
-send url request =
+send url headers request =
     let
         documentString =
             Builder.requestBody request
@@ -58,7 +61,7 @@ send url request =
         variableValuesJson =
             Builder.jsonVariableValues request
     in
-        sendRaw url documentString decoder variableValuesJson
+        sendRaw url headers documentString decoder variableValuesJson
 
 
 {-| Takes a URL and a `Query` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send the request to a GraphQL server at the given endpoint.
@@ -67,7 +70,18 @@ sendQuery :
     String
     -> Builder.Request Builder.Query result
     -> Task Error result
-sendQuery =
+sendQuery url request =
+    send url [] request
+
+
+{-| Takes a URL, a list of `Http.Header`s and a `Query` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send the request to a GraphQL server at the given endpoint.
+-}
+sendQueryWithHeaders :
+    String
+    -> List (Http.Header)
+    -> Builder.Request Builder.Query result
+    -> Task Error result
+sendQueryWithHeaders =
     send
 
 
@@ -77,7 +91,18 @@ sendMutation :
     String
     -> Builder.Request Builder.Mutation result
     -> Task Error result
-sendMutation =
+sendMutation url request =
+    send url [] request
+
+
+{-| Takes a URL, a list of `Http.Header`s and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send the request to a GraphQL server at the given endpoint.
+-}
+sendMutationWithHeaders :
+    String
+    -> List (Http.Header)
+    -> Builder.Request Builder.Mutation result
+    -> Task Error result
+sendMutationWithHeaders =
     send
 
 
@@ -107,8 +132,8 @@ convertHttpError error =
             HttpError error
 
 
-sendRaw : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Error a
-sendRaw url documentString dataDecoder variableValues =
+sendRaw : String -> List (Http.Header) -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Error a
+sendRaw url headers documentString dataDecoder variableValues =
     let
         documentValue =
             Json.Encode.string documentString
@@ -127,6 +152,14 @@ sendRaw url documentString dataDecoder variableValues =
         body =
             Http.jsonBody params
     in
-        Http.post url body decoder
+        Http.request
+            { method = "POST"
+            , headers = headers
+            , url = url
+            , body = body
+            , expect = Http.expectJson decoder
+            , timeout = Nothing
+            , withCredentials = False
+            }
             |> Http.toTask
             |> Task.mapError convertHttpError
