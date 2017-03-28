@@ -3,6 +3,7 @@ module GraphQL.Client.Http
         ( RequestError
         , DocumentLocation
         , Error(..)
+        , RequestOptions
         , sendQuery
         , sendMutation
         , customSendQuery
@@ -11,7 +12,7 @@ module GraphQL.Client.Http
 
 {-| The functions in this module let you perform HTTP requests to conventional GraphQL server endpoints.
 
-@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation, customSendQuery, customSendMutation
+@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation, RequestOptions,  customSendQuery, customSendMutation
 -}
 
 import GraphQL.Request.Builder as Builder
@@ -48,7 +49,7 @@ type Error
 
 
 send :
-    HttpRequestOptions
+    RequestOptions
     -> Builder.Request operationType result
     -> Task Error result
 send requestOptions request =
@@ -71,8 +72,8 @@ sendQuery :
     String
     -> Builder.Request Builder.Query result
     -> Task Error result
-sendQuery url =
-    send (defaultHttpRequestOptions url)
+sendQuery =
+    defaultRequestOptions >> send
 
 
 {-| Takes a URL and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint.
@@ -81,13 +82,13 @@ sendMutation :
     String
     -> Builder.Request Builder.Mutation result
     -> Task Error result
-sendMutation url =
-    send (defaultHttpRequestOptions url)
+sendMutation =
+    defaultRequestOptions >> send
 
 
 {-| Options available for customizing GraphQL HTTP requests. `method` should be either `"GET"` or `"POST"`. For `GET` requests, the `url` is modified to include extra parameters in the query string for the GraphQL document and variables. Otherwise, the document and variables are included in the HTTP request body.
 -}
-type alias HttpRequestOptions =
+type alias RequestOptions =
     { method : String
     , headers : List Http.Header
     , url : String
@@ -96,28 +97,28 @@ type alias HttpRequestOptions =
     }
 
 
-{-| Like `sendQuery`, but takes an `HttpRequestOptions` value instead of a URL to let you further customize the HTTP request.
+{-| Like `sendQuery`, but takes an `RequestOptions` value instead of a URL to let you further customize the HTTP request.
 -}
 customSendQuery :
-    HttpRequestOptions
+    RequestOptions
     -> Builder.Request Builder.Query result
     -> Task Error result
 customSendQuery =
     send
 
 
-{-| Like `sendMutation`, but takes an `HttpRequestOptions` value instead of a URL to let you further customize the HTTP request.
+{-| Like `sendMutation`, but takes an `RequestOptions` value instead of a URL to let you further customize the HTTP request.
 -}
 customSendMutation :
-    HttpRequestOptions
+    RequestOptions
     -> Builder.Request Builder.Mutation result
     -> Task Error result
 customSendMutation =
     send
 
 
-defaultHttpRequestOptions : String -> HttpRequestOptions
-defaultHttpRequestOptions url =
+defaultRequestOptions : String -> RequestOptions
+defaultRequestOptions url =
     { method = "POST"
     , headers = []
     , url = url
@@ -193,7 +194,7 @@ parameterizedUrl url documentString variableValues =
 
 
 sendRaw :
-    HttpRequestOptions
+    RequestOptions
     -> String
     -> Json.Decode.Decoder a
     -> Maybe Json.Encode.Value
