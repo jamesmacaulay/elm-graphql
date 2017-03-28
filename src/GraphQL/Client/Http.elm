@@ -5,11 +5,13 @@ module GraphQL.Client.Http
         , Error(..)
         , sendQuery
         , sendMutation
+        , customSendQuery
+        , customSendMutation
         )
 
 {-| The functions in this module let you perform HTTP requests to conventional GraphQL server endpoints.
 
-@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation
+@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation, customSendQuery, customSendMutation
 -}
 
 import GraphQL.Request.Builder as Builder
@@ -18,6 +20,8 @@ import Json.Decode
 import Json.Encode
 import Http
 import Task exposing (Task)
+import Time exposing (Time)
+import String
 
 
 {-| An error returned by the GraphQL server that indicates there was something wrong with the request.
@@ -44,10 +48,10 @@ type Error
 
 
 send :
-    String
+    HttpRequestOptions
     -> Builder.Request operationType result
     -> Task Error result
-send url request =
+send requestOptions request =
     let
         documentString =
             Builder.requestBody request
@@ -58,27 +62,68 @@ send url request =
         variableValuesJson =
             Builder.jsonVariableValues request
     in
-        sendRaw url documentString decoder variableValuesJson
+        sendRaw requestOptions documentString decoder variableValuesJson
 
 
-{-| Takes a URL and a `Query` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send the request to a GraphQL server at the given endpoint.
+{-| Takes a URL and a `Query` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint.
 -}
 sendQuery :
     String
     -> Builder.Request Builder.Query result
     -> Task Error result
-sendQuery =
-    send
+sendQuery url =
+    send (defaultHttpRequestOptions url)
 
 
-{-| Takes a URL and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send the request to a GraphQL server at the given endpoint.
+{-| Takes a URL and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint.
 -}
 sendMutation :
     String
     -> Builder.Request Builder.Mutation result
     -> Task Error result
-sendMutation =
+sendMutation url =
+    send (defaultHttpRequestOptions url)
+
+
+{-| Options available for customizing GraphQL HTTP requests. `method` should be either `"GET"` or `"POST"`. For `GET` requests, the `url` is modified to include extra parameters in the query string for the GraphQL document and variables. Otherwise, the document and variables are included in the HTTP request body.
+-}
+type alias HttpRequestOptions =
+    { method : String
+    , headers : List Http.Header
+    , url : String
+    , timeout : Maybe Time
+    , withCredentials : Bool
+    }
+
+
+{-| Like `sendQuery`, but takes an `HttpRequestOptions` value instead of a URL to let you further customize the HTTP request.
+-}
+customSendQuery :
+    HttpRequestOptions
+    -> Builder.Request Builder.Query result
+    -> Task Error result
+customSendQuery =
     send
+
+
+{-| Like `sendMutation`, but takes an `HttpRequestOptions` value instead of a URL to let you further customize the HTTP request.
+-}
+customSendMutation :
+    HttpRequestOptions
+    -> Builder.Request Builder.Mutation result
+    -> Task Error result
+customSendMutation =
+    send
+
+
+defaultHttpRequestOptions : String -> HttpRequestOptions
+defaultHttpRequestOptions url =
+    { method = "POST"
+    , headers = []
+    , url = url
+    , timeout = Nothing
+    , withCredentials = False
+    }
 
 
 errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
@@ -107,14 +152,11 @@ convertHttpError error =
             HttpError error
 
 
-sendRaw : String -> String -> Json.Decode.Decoder a -> Maybe Json.Encode.Value -> Task Error a
-sendRaw url documentString dataDecoder variableValues =
+postBody : String -> Maybe Json.Encode.Value -> Http.Body
+postBody documentString variableValues =
     let
         documentValue =
             Json.Encode.string documentString
-
-        decoder =
-            Json.Decode.field "data" dataDecoder
 
         extraParams =
             variableValues
@@ -123,10 +165,60 @@ sendRaw url documentString dataDecoder variableValues =
 
         params =
             Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
-
-        body =
-            Http.jsonBody params
     in
-        Http.post url body decoder
+        Http.jsonBody params
+
+
+parameterizedUrl : String -> String -> Maybe Json.Encode.Value -> String
+parameterizedUrl url documentString variableValues =
+    let
+        firstParamPrefix =
+            if String.contains "?" url then
+                "&"
+            else
+                "?"
+
+        queryParam =
+            firstParamPrefix ++ "query=" ++ Http.encodeUri documentString
+
+        variablesParam =
+            variableValues
+                |> Maybe.map
+                    (\obj ->
+                        "&variables=" ++ Http.encodeUri (Json.Encode.encode 0 obj)
+                    )
+                |> Maybe.withDefault ""
+    in
+        url ++ queryParam ++ variablesParam
+
+
+sendRaw :
+    HttpRequestOptions
+    -> String
+    -> Json.Decode.Decoder a
+    -> Maybe Json.Encode.Value
+    -> Task Error a
+sendRaw { method, headers, url, timeout, withCredentials } documentString dataDecoder variableValues =
+    let
+        decoder =
+            Json.Decode.field "data" dataDecoder
+
+        ( finalUrl, body ) =
+            if method == "GET" then
+                ( parameterizedUrl url documentString variableValues, Http.emptyBody )
+            else
+                ( url, postBody documentString variableValues )
+
+        requestConfig =
+            { method = method
+            , headers = headers
+            , url = finalUrl
+            , body = body
+            , expect = Http.expectJson decoder
+            , timeout = timeout
+            , withCredentials = withCredentials
+            }
+    in
+        Http.request requestConfig
             |> Http.toTask
             |> Task.mapError convertHttpError
