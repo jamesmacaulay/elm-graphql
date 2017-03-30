@@ -4,7 +4,7 @@ import Test exposing (..)
 import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
-import GraphQL.Request.Builder.Variable as Variable
+import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Response as Response
 import Json.Decode as Decode
 
@@ -57,29 +57,29 @@ type alias ExampleVariables =
     }
 
 
-userIdVar : Variable.Variable { v | userId : String }
+userIdVar : Var.Variable { v | userId : String }
 userIdVar =
-    Variable.required
+    Var.required
         "userId"
         .userId
-        Variable.string
+        Var.string
 
 
-includeProjectsVar : Variable.Variable { v | includeProjects : Maybe Bool }
+includeProjectsVar : Var.Variable { v | includeProjects : Maybe Bool }
 includeProjectsVar =
-    Variable.optional
+    Var.optional
         "includeProjects"
         .includeProjects
-        Variable.bool
+        Var.bool
         False
 
 
-secrecyUnitsVar : Variable.Variable { v | secrecyUnits : Maybe String }
+secrecyUnitsVar : Var.Variable { v | secrecyUnits : Maybe String }
 secrecyUnitsVar =
-    Variable.optional
+    Var.optional
         "secrecyUnits"
         .secrecyUnits
-        Variable.string
+        Var.string
         "metric"
 
 
@@ -179,6 +179,29 @@ exampleErrorResponse =
 }"""
 
 
+exampleMutationRequest : Request Mutation String
+exampleMutationRequest =
+    let
+        usernameVar =
+            Var.required "username" .username Var.string
+
+        passwordVar =
+            Var.required "password" .password Var.string
+    in
+        extract
+            (field "login"
+                [ ( "username", Arg.variable usernameVar )
+                , ( "password", Arg.variable passwordVar )
+                ]
+                (extract (field "token" [] string))
+            )
+            |> mutationDocument
+            |> request
+                { username = "alice"
+                , password = "IaFkVmT3EK"
+                }
+
+
 tests : List Test.Test
 tests =
     [ test "encoding a request" <|
@@ -254,6 +277,15 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
                           }
                         ]
                     )
+    , test "mutation request serialization" <|
+        \() ->
+            exampleMutationRequest
+                |> requestBody
+                |> Expect.equal """mutation ($username: String!, $password: String!) {
+  login(username: $username, password: $password) {
+    token
+  }
+}"""
     ]
 
 
