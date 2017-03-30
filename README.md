@@ -115,6 +115,34 @@ When it is decoded with the help of the decoder contained in `userQuery`, it bec
 }
 ```
 
+Mutations are built just like queries, except that you wrap them up in a call to `mutationDocument` instead of a call to `queryDocument`. Here's an example of a mutation that logs in a user and extracts an auth token from the response:
+
+```elm
+type alias LoginVars =
+    { username : String
+    , password : String
+    }
+
+
+loginMutation : Document Mutation String LoginVars
+loginMutation =
+    let
+        usernameVar =
+            Var.required "username" .username Var.string
+
+        passwordVar =
+            Var.required "password" .password Var.string
+    in
+        mutationDocument <|
+            extract
+                (field "login"
+                    [ ( "username", Arg.variable usernameVar )
+                    , ( "password", Arg.variable passwordVar )
+                    ]
+                    (extract (field "token" [] string))
+                )
+```
+
 ### Future plans for this package
 
 There are a lot of things that this package can't do right now, but might do in the future. What gets done depends on how the package ends up being used, and how much demand there is for each feature. Here are some likely possibilities:
