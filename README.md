@@ -147,6 +147,7 @@ loginMutation =
 
 There are a lot of things that this package can't do right now, but might do in the future. What gets done depends on how the package ends up being used, and how much demand there is for each feature. Here are some likely possibilities:
 
+* support for [subscriptions](https://dev-blog.apollodata.com/graphql-subscriptions-in-apollo-client-9a2457f015fb)
 * generating code from a GraphQL schema to help build valid queries
 * providing functions to validate a query against a target schema
 * leveraging Relay-compliant schemas to cache response data and transform queries so that the client only asks the server for what it doesn't have already
