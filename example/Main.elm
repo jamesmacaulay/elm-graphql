@@ -8,26 +8,13 @@ import GraphQL.Client.Http as GraphQLClient
 import Task exposing (Task)
 
 
+{-| Responses to `starWarsRequest` are decoded into this type.
+-}
 type alias FilmSummary =
     { title : Maybe String
     , someCharacterNames : List (Maybe String)
     , somePlanetNames : Maybe (List (Maybe String))
     }
-
-
-connectionNodes :
-    ValueSpec NonNull ObjectType result vars
-    -> ValueSpec NonNull ObjectType (List result) vars
-connectionNodes spec =
-    extract
-        (field "edges"
-            []
-            (list
-                (extract
-                    (field "node" [] spec)
-                )
-            )
-        )
 
 
 {-| The definition of `starWarsRequest` builds up a query request value that
@@ -97,6 +84,23 @@ starWarsRequest =
                 { filmID = "1"
                 , pageSize = Nothing
                 }
+
+
+{-| A function that helps you extract node objects from paginated Relay connections.
+-}
+connectionNodes :
+    ValueSpec NonNull ObjectType result vars
+    -> ValueSpec NonNull ObjectType (List result) vars
+connectionNodes spec =
+    extract
+        (field "edges"
+            []
+            (list
+                (extract
+                    (field "node" [] spec)
+                )
+            )
+        )
 
 
 type alias StarWarsResponse =

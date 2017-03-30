@@ -6,7 +6,9 @@ A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written 
 
 The goal of this package is to provide a really good interface for working directly with GraphQL queries and schemas in Elm. Right now the main offering of the package is an interface for building up nested queries and mutations in a way that also builds up a decoder capable of decoding successful responses to the request. The package also provides a module for sending these requests to a GraphQL server over HTTP and decoding the responses accordingly.
 
-Here's [an end-to-end example](https://github.com/jamesmacaulay/elm-graphql/tree/master/example) that builds a query, sends it to a server, and decodes the response.
+The docs can be found [here](http://package.elm-lang.org/packages/jamesmacaulay/elm-graphql/latest).
+
+And [here's an end-to-end example](https://github.com/jamesmacaulay/elm-graphql/blob/master/example/Main.elm) that builds a query, sends it to a server, and decodes the response.
 
 ### Building requests
 
