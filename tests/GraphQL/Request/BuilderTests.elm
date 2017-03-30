@@ -179,8 +179,14 @@ exampleErrorResponse =
 }"""
 
 
-exampleMutationRequest : Request Mutation String
-exampleMutationRequest =
+type alias LoginVars =
+    { username : String
+    , password : String
+    }
+
+
+exampleMutationDocument : Document Mutation String LoginVars
+exampleMutationDocument =
     let
         usernameVar =
             Var.required "username" .username Var.string
@@ -188,18 +194,23 @@ exampleMutationRequest =
         passwordVar =
             Var.required "password" .password Var.string
     in
-        extract
-            (field "login"
-                [ ( "username", Arg.variable usernameVar )
-                , ( "password", Arg.variable passwordVar )
-                ]
-                (extract (field "token" [] string))
-            )
-            |> mutationDocument
-            |> request
-                { username = "alice"
-                , password = "IaFkVmT3EK"
-                }
+        mutationDocument <|
+            extract
+                (field "login"
+                    [ ( "username", Arg.variable usernameVar )
+                    , ( "password", Arg.variable passwordVar )
+                    ]
+                    (extract (field "token" [] string))
+                )
+
+
+exampleMutationRequest : Request Mutation String
+exampleMutationRequest =
+    exampleMutationDocument
+        |> request
+            { username = "alice"
+            , password = "IaFkVmT3EK"
+            }
 
 
 tests : List Test.Test

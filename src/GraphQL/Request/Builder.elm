@@ -400,7 +400,32 @@ queryOperationType =
     QueryOperationType
 
 
-{-| Take a `ValueSpec` and return a `Document` for a single mutation operation. The argument must be a `NonNull Object` ValueSpec, because it represents the root-level selection set of the mutation operation.
+{-| Take a `ValueSpec` and return a `Document` for a single mutation operation. The argument must be a `NonNull Object` ValueSpec, because it represents the root-level selection set of the mutation operation. Here's an example of a mutation that logs in a user and extracts an auth token from the response:
+
+    type alias LoginVars =
+        { username : String
+        , password : String
+        }
+
+
+    loginMutation : Document Mutation String LoginVars
+    loginMutation =
+        let
+            usernameVar =
+                Var.required "username" .username Var.string
+
+            passwordVar =
+                Var.required "password" .password Var.string
+        in
+            mutationDocument <|
+                extract
+                    (field "login"
+                        [ ( "username", Arg.variable usernameVar )
+                        , ( "password", Arg.variable passwordVar )
+                        ]
+                        (extract (field "token" [] string))
+                    )
+
 -}
 mutationDocument :
     ValueSpec NonNull ObjectType result vars
