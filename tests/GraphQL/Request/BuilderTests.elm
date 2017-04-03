@@ -7,6 +7,8 @@ import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Response as Response
 import Json.Decode as Decode
+import Date exposing (Date)
+import Time exposing (Time)
 
 
 testDecoder :
@@ -33,6 +35,7 @@ type alias ExampleQueryUser =
     { id : String
     , name : String
     , role : ExampleRole
+    , createdAt : Time
     , projects : Maybe (List ExampleQueryProject)
     }
 
@@ -55,6 +58,25 @@ type alias ExampleVariables =
     , includeProjects : Maybe Bool
     , secrecyUnits : Maybe String
     }
+
+
+type TimeType
+    = TimeType
+
+
+time : ValueSpec NonNull TimeType Time vars
+time =
+    Decode.string
+        |> Decode.andThen
+            (\timeString ->
+                case Result.map Date.toTime (Date.fromString timeString) of
+                    Ok time ->
+                        Decode.succeed time
+
+                    Err errorMessage ->
+                        Decode.fail errorMessage
+            )
+        |> customScalar TimeType
 
 
 userIdVar : Var.Variable { v | userId : String }
@@ -130,6 +152,7 @@ exampleQueryRequest =
                     |> with (field "id" [] id)
                     |> with (field "name" [] string)
                     |> with (field "role" [] roleEnum)
+                    |> with (field "createdAt" [] time)
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
                 )
             )
@@ -149,6 +172,7 @@ exampleSuccessResponse =
             "id": "123",
             "name": "alice",
             "role": "ADMIN",
+            "createdAt": "2017-04-02T19:57:00Z",
             "projects": [
                 {
                     "id": "456",
@@ -235,6 +259,7 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
     id
     name
     role
+    createdAt
     ...userProjectsFragment
   }
 }"""
@@ -262,6 +287,7 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
                             { id = "123"
                             , name = "alice"
                             , role = ExampleAdminRole
+                            , createdAt = 1491163020000
                             , projects =
                                 Just
                                     [ { id = "456"

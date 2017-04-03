@@ -36,6 +36,7 @@ module GraphQL.Request.Builder
         , id
         , enum
         , enumWithDefault
+        , customScalar
         , list
         , nullable
         , object
@@ -75,7 +76,7 @@ In order to use arguments and variables in your requests, you will need to use f
 
 ## Scalars
 
-@docs int, float, string, bool, id, enum, enumWithDefault
+@docs int, float, string, bool, id, enum, enumWithDefault, customScalar
 
 ## Nullability
 
@@ -911,6 +912,42 @@ enumWithDefault ctr =
         (\label ->
             Decode.succeed (ctr label)
         )
+
+
+{-| Create a `ValueSpec` for a custom scalar type defined in the GraphQL schema you're interacting with. The `customTypeMarker` is an Elm type that you define specifically for this custom scalar `ValueSpec` you're making. The type should have a single constructor that takes no arguments, and both should have the CamelCase name of the custom scalar type in the GraphQL schema, plus a `"Type"` suffix. For example, if your GraphQL schema has a `Time` type, you should define your `customTypeMarker` like the following, in some module of your choosing:
+
+    type TimeType
+        = TimeType
+
+The type marker is used by this package to help make sure `ValueSpec`s are only combined in valid ways. In the future, it may be used to help you validate that your queries and mutations against a target schema in your unit tests.
+
+Once you have `TimeType` to use as a type marker, you can define a `ValueSpec` for the `Time` GraphQL type by supplying `TimeType` as a runtime argument to the function along with a JSON decoder that works with values of the type. For example, you might decide to use the `elm-iso8601` package for parsing and define the `ValueSpec` like so:
+
+    import ISO8601
+    import Json.Decode as Decode
+
+    type TimeType
+        = TimeType
+
+    time : ValueSpec NonNull TimeType ISO8601.Time vars
+    time =
+        Decode.string
+            |> Decode.andThen
+                (\timeString ->
+                    case ISO8601.fromString timeString of
+                        Ok time ->
+                            Decode.succeed time
+                        Err errorMessage ->
+                            Decode.fail errorMessage
+                )
+            |> customScalar TimeType
+-}
+customScalar :
+    customTypeMarker
+    -> Decoder result
+    -> ValueSpec NonNull customTypeMarker result vars
+customScalar customTypeMarker decoder =
+    primitiveSpec customTypeMarker decoder
 
 
 enumWithFallback :
