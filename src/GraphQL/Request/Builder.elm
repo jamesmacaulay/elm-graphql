@@ -864,16 +864,12 @@ id =
         | MemberAccess
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevelField =
-        (field "accessLevel"
-            []
-            (enum
-                [ ( "ADMIN", AdminAccess )
-                , ( "MEMBER", MemberAccess )
-                ]
-            )
-        )
+       enum
+           [ ( "ADMIN", AdminAccess )
+           , ( "MEMBER", MemberAccess )
+           ]
 -}
 enum : List ( String, result ) -> ValueSpec NonNull EnumType result vars
 enum =
@@ -891,16 +887,12 @@ enum =
         | UnknownAccess String
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevelField =
-        (field "accessLevel"
-            []
-            (enumWithDefault UnknownAccess
-                [ ( "ADMIN", AdminAccess )
-                , ( "MEMBER", MemberAccess )
-                ]
-            )
-        )
+       enumWithDefault UnknownAccess
+           [ ( "ADMIN", AdminAccess )
+           , ( "MEMBER", MemberAccess )
+           ]
 -}
 enumWithDefault :
     (String -> result)
