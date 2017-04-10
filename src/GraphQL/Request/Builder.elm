@@ -865,8 +865,8 @@ id =
         | MemberAccess
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
-    userAccessLevelField =
+    userAccessLevel : ValueSpec NonNull EnumType AccessLevel vars
+    userAccessLevel =
        enum
            [ ( "ADMIN", AdminAccess )
            , ( "MEMBER", MemberAccess )
@@ -888,8 +888,8 @@ enum =
         | UnknownAccess String
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
-    userAccessLevelField =
+    userAccessLevel : ValueSpec NonNull EnumType AccessLevel vars
+    userAccessLevel =
        enumWithDefault UnknownAccess
            [ ( "ADMIN", AdminAccess )
            , ( "MEMBER", MemberAccess )
