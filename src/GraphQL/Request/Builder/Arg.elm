@@ -24,71 +24,71 @@ import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Builder.Variable as Variable
 
 
-{-| An argument value, which might be either a constant or a variable. The `variableSource` parameter is the type of Elm value that variables will extract their values from.
+{-| An argument value, which might be either a constant or a variable. The `vars` parameter is the type of Elm value that variables will extract their values from.
 -}
-type Value variableSource
-    = Value AST.ArgumentValue (List (Variable.Variable variableSource))
+type Value vars
+    = Value AST.ArgumentValue (List (Variable.Variable vars))
 
 
 {-| Construct a variable argument value.
 -}
-variable : Variable.Variable variableSource -> Value variableSource
+variable : Variable.Variable vars -> Value vars
 variable var =
     Value (AST.VariableValue () (Variable.name var)) [ var ]
 
 
 {-| Construct a constant GraphQL `Int` argument value from an Elm `Int`.
 -}
-int : Int -> Value variableSource
+int : Int -> Value vars
 int x =
     Value (AST.IntValue x) []
 
 
 {-| Construct a constant GraphQL `Float` argument value from an Elm `Float`.
 -}
-float : Float -> Value variableSource
+float : Float -> Value vars
 float x =
     Value (AST.FloatValue x) []
 
 
 {-| Construct a constant GraphQL `String` argument value from an Elm `String`.
 -}
-string : String -> Value variableSource
+string : String -> Value vars
 string x =
     Value (AST.StringValue x) []
 
 
 {-| Construct a constant GraphQL `Boolean` argument value from an Elm `Bool`.
 -}
-bool : Bool -> Value variableSource
+bool : Bool -> Value vars
 bool x =
     Value (AST.BooleanValue x) []
 
 
 {-| The GraphQL `true` value.
 -}
-true : Value variableSource
+true : Value vars
 true =
     bool True
 
 
 {-| The GraphQL `false` value.
 -}
-false : Value variableSource
+false : Value vars
 false =
     bool False
 
 
 {-| The GraphQL `null` value.
 -}
-null : Value variableSource
+null : Value vars
 null =
     Value AST.NullValue []
 
 
 {-| Constructs a GraphQL Input Object value from a list of key-value pairs.
 -}
-object : List ( String, Value variableSource ) -> Value variableSource
+object : List ( String, Value vars ) -> Value vars
 object pairs =
     Value
         (AST.ObjectValue (pairs |> List.map (\( k, Value ast _ ) -> ( k, ast ))))
@@ -97,7 +97,7 @@ object pairs =
 
 {-| Constructs a GraphQL List from an Elm `List` of `Value`s.
 -}
-list : List (Value variableSource) -> Value variableSource
+list : List (Value vars) -> Value vars
 list values =
     Value
         (AST.ListValue (values |> List.map (\(Value ast _) -> ast)))
@@ -106,13 +106,13 @@ list values =
 
 {-| Returns the AST (abstract syntax tree) representation of a `Value`.
 -}
-getAST : Value variableSource -> AST.ArgumentValue
+getAST : Value vars -> AST.ArgumentValue
 getAST (Value ast _) =
     ast
 
 
 {-| Returns a `List` of any `Variable`s used in the given `Value`.
 -}
-getVariables : Value variableSource -> List (Variable.Variable variableSource)
+getVariables : Value vars -> List (Variable.Variable vars)
 getVariables (Value _ vars) =
     vars
