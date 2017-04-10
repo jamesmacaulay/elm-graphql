@@ -150,7 +150,7 @@ exampleQueryRequest =
                 [ ( "id", Arg.variable userIdVar ) ]
                 (object ExampleQueryUser
                     |> with (field "id" [] id)
-                    |> with (field "name" [] string)
+                    |> with (field "name" [ ( "kind", Arg.enum "FIRST_NAME" ) ] string)
                     |> with (field "role" [] roleEnum)
                     |> with (field "createdAt" [] time)
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
@@ -257,7 +257,7 @@ tests =
 query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: String = "metric") {
   user(id: $userId) {
     id
-    name
+    name(kind: FIRST_NAME)
     role
     createdAt
     ...userProjectsFragment
