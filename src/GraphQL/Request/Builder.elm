@@ -96,15 +96,15 @@ In order to use arguments and variables in your requests, you will need to use f
 
 -}
 
-import Json.Decode as Decode exposing (Decoder)
-import Json.Encode as Encode
-import GraphQL.Request.Document.AST as AST
-import GraphQL.Request.Document.AST.Serialize as Serialize
-import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
-import GraphQL.Request.Document.AST.Util as Util
+import Dict exposing (Dict)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
-import Dict exposing (Dict)
+import GraphQL.Request.Document.AST as AST
+import GraphQL.Request.Document.AST.Serialize as Serialize
+import GraphQL.Request.Document.AST.Util as Util
+import GraphQL.Request.Document.AST.Value.Json.Encode as ValueEncode
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Set exposing (Set)
 
 
@@ -865,16 +865,12 @@ id =
         | MemberAccess
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevelField =
-        (field "accessLevel"
-            []
-            (enum
-                [ ( "ADMIN", AdminAccess )
-                , ( "MEMBER", MemberAccess )
-                ]
-            )
-        )
+       enum
+           [ ( "ADMIN", AdminAccess )
+           , ( "MEMBER", MemberAccess )
+           ]
 -}
 enum : List ( String, result ) -> ValueSpec NonNull EnumType result vars
 enum =
@@ -892,16 +888,12 @@ enum =
         | UnknownAccess String
 
 
-    userAccessLevelField : ValueSpec NonNull EnumType vars AccessLevel
+    userAccessLevelField : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevelField =
-        (field "accessLevel"
-            []
-            (enumWithDefault UnknownAccess
-                [ ( "ADMIN", AdminAccess )
-                , ( "MEMBER", MemberAccess )
-                ]
-            )
-        )
+       enumWithDefault UnknownAccess
+           [ ( "ADMIN", AdminAccess )
+           , ( "MEMBER", MemberAccess )
+           ]
 -}
 enumWithDefault :
     (String -> result)
