@@ -1,4 +1,4 @@
-<img src="elm-graphql.png" alt="elm-graphql logo" width="40%" align="right">
+<img src="https://raw.githubusercontent.com/jamesmacaulay/elm-graphql/master/elm-graphql.png" alt="elm-graphql logo" width="40%" align="right">
 
 ## jamesmacaulay/elm-graphql
 
