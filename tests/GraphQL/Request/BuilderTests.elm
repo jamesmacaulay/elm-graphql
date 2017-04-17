@@ -53,8 +53,14 @@ type ExampleRole
     | ExampleMemberRole
 
 
+type ExampleNameKind
+    = ExampleFirstName
+    | ExampleFullName
+
+
 type alias ExampleVariables =
     { userId : String
+    , userNameKind : ExampleNameKind
     , includeProjects : Maybe Bool
     , secrecyUnits : Maybe String
     }
@@ -85,6 +91,24 @@ userIdVar =
         "userId"
         .userId
         Var.string
+
+
+exampleNameKindToEnumSymbol : ExampleNameKind -> String
+exampleNameKindToEnumSymbol kind =
+    case kind of
+        ExampleFirstName ->
+            "FIRST_NAME"
+
+        ExampleFullName ->
+            "FULL_NAME"
+
+
+userNameKindVar : Var.Variable { v | userNameKind : ExampleNameKind }
+userNameKindVar =
+    Var.required
+        "userNameKind"
+        .userNameKind
+        (Var.enum "NameKind" exampleNameKindToEnumSymbol)
 
 
 includeProjectsVar : Var.Variable { v | includeProjects : Maybe Bool }
@@ -150,7 +174,7 @@ exampleQueryRequest =
                 [ ( "id", Arg.variable userIdVar ) ]
                 (object ExampleQueryUser
                     |> with (field "id" [] id)
-                    |> with (field "name" [] string)
+                    |> with (field "name" [ ( "kind", Arg.variable userNameKindVar ) ] string)
                     |> with (field "role" [] roleEnum)
                     |> with (field "createdAt" [] time)
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
@@ -159,6 +183,7 @@ exampleQueryRequest =
         |> queryDocument
         |> request
             { userId = "123"
+            , userNameKind = ExampleFirstName
             , includeProjects = Just True
             , secrecyUnits = Nothing
             }
@@ -254,10 +279,10 @@ tests =
   }
 }
 
-query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: String = "metric") {
+query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $secrecyUnits: String = "metric") {
   user(id: $userId) {
     id
-    name
+    name(kind: $userNameKind)
     role
     createdAt
     ...userProjectsFragment
@@ -269,13 +294,14 @@ query ($userId: String!, $includeProjects: Boolean = false, $secrecyUnits: Strin
                 |> jsonVariableValues
                 |> Maybe.map
                     (Decode.decodeValue
-                        (Decode.map2 (,)
+                        (Decode.map3 (,,)
                             (Decode.field "userId" Decode.string)
+                            (Decode.field "userNameKind" Decode.string)
                             (Decode.field "includeProjects" Decode.bool)
                         )
                     )
                 |> Expect.equal
-                    (Just (Ok ( "123", True )))
+                    (Just (Ok ( "123", "FIRST_NAME", True )))
     , test "decoding a successful response of a request" <|
         \() ->
             exampleSuccessResponse

@@ -12,6 +12,7 @@ module GraphQL.Request.Builder.Variable
         , string
         , bool
         , id
+        , enum
         , nullable
         , list
         , object
@@ -23,7 +24,7 @@ module GraphQL.Request.Builder.Variable
 
 {-| The functions in this module let you define GraphQL variables that you can pass as arguments in your request documents built with the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
-@docs VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, nullable, list, object, field, name, toDefinitionAST, extractValuesFrom
+@docs VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, enum, nullable, list, object, field, name, toDefinitionAST, extractValuesFrom
 -}
 
 import GraphQL.Request.Document.AST as AST
@@ -110,6 +111,30 @@ bool =
 id : VariableSpec NonNull String
 id =
     VariableSpec NonNull TypeRef.id AST.StringValue
+
+
+{-| Constructs a `VariableSpec` for a GraphQL Enum type. The first argument is the name of an Enum type as defined in the GraphQL schema being used. The second argument is a function that converts values of some arbitrary `source` type into `String` symbols that correspond to the Enum's possible values as defined in the schema.
+
+    type AccessLevel
+        = AdminAccess
+        | MemberAccess
+
+    accessLevelToEnumSymbol : AccessLevel -> String
+    accessLevelToEnumSymbol accessLevel =
+        case accessLevel of
+            AdminAccess ->
+                "ADMIN"
+
+            MemberAccess ->
+                "MEMBER"
+
+    accessLevel : VariableSpec NonNull AccessLevel
+    accessLevel =
+        enum "AccessLevel" accessLevelToEnumSymbol
+-}
+enum : String -> (source -> String) -> VariableSpec NonNull source
+enum typeName convert =
+    VariableSpec NonNull (TypeRef.namedType typeName) (convert >> AST.EnumValue)
 
 
 {-| Transforms a `NonNull` `VariableSpec` into one that allows `null` values, extracting its value from a `Maybe`.

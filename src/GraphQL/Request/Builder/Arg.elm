@@ -9,6 +9,7 @@ module GraphQL.Request.Builder.Arg
         , true
         , false
         , null
+        , enum
         , object
         , list
         , getAST
@@ -17,7 +18,7 @@ module GraphQL.Request.Builder.Arg
 
 {-| The functions in this module let you construct argument values that you can pass to fields and directives using the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
-@docs Value, variable, int, float, string, bool, true, false, null, object, list, getAST, getVariables
+@docs Value, variable, int, float, string, bool, true, false, null, enum, object, list, getAST, getVariables
 -}
 
 import GraphQL.Request.Document.AST as AST
@@ -84,6 +85,13 @@ false =
 null : Value vars
 null =
     Value AST.NullValue []
+
+
+{-| Construct a GraphQL Enum value from a `String`.
+-}
+enum : String -> Value vars
+enum symbol =
+    Value (AST.EnumValue symbol) []
 
 
 {-| Constructs a GraphQL Input Object value from a list of key-value pairs.
