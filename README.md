@@ -87,7 +87,7 @@ userQueryRequest =
         |> request { userID = "123" }
 ```
 
-Assuming you've built a query that is valid for the server's schema, sending it to the server will result in a JSON response that can be decoded by the very same `Query User` value, using a JSON decoder that is built up along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
+Assuming you've built a query that is valid for the server's schema, sending it to the server will result in a JSON response that can be decoded with a JSON decoder that is built up automatically along with the structure of the query. Here's what a JSON response for `userQuery` might look like:
 
 ```
 {
