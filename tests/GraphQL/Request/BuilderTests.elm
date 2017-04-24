@@ -180,7 +180,18 @@ exampleQueryRequest =
     object ExampleQueryRoot
         |> with
             (field "user"
-                [ ( "id", Arg.variable userIdVar ) ]
+                [ ( "id", Arg.variable userIdVar )
+                , ( "intListTest"
+                  , [ 1, 2, 3 ]
+                        |> List.map Arg.int
+                        |> Arg.list
+                  )
+                , ( "stringListTest"
+                  , [ "foo", "bar", "baz" ]
+                        |> List.map Arg.string
+                        |> Arg.list
+                  )
+                ]
                 (object ExampleQueryUser
                     |> with (field "id" [] id)
                     |> with (field "name" [ ( "kind", Arg.variable userNameKindVar ) ] string)
@@ -290,7 +301,7 @@ tests =
 }
 
 query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $projectIds: [ID!]!, $secrecyUnits: String = "metric") {
-  user(id: $userId) {
+  user(id: $userId, intListTest: [1, 2, 3], stringListTest: ["foo", "bar", "baz"]) {
     id
     name(kind: $userNameKind)
     role

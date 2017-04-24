@@ -139,7 +139,7 @@ serializeValue value =
             symbol
 
         AST.ListValue values ->
-            values |> List.map serializeValue |> toString
+            "[" ++ String.join ", " (List.map serializeValue values) ++ "]"
 
         AST.ObjectValue pairs ->
             "{" ++ String.join ", " (List.map serializeKeyValuePair pairs) ++ "}"
