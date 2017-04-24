@@ -62,6 +62,7 @@ type alias ExampleVariables =
     { userId : String
     , userNameKind : ExampleNameKind
     , includeProjects : Maybe Bool
+    , projectIds : List String
     , secrecyUnits : Maybe String
     }
 
@@ -120,6 +121,14 @@ includeProjectsVar =
         False
 
 
+projectIdsVar : Var.Variable { v | projectIds : List String }
+projectIdsVar =
+    Var.required
+        "projectIds"
+        .projectIds
+        (Var.list Var.id)
+
+
 secrecyUnitsVar : Var.Variable { v | secrecyUnits : Maybe String }
 secrecyUnitsVar =
     Var.optional
@@ -136,7 +145,7 @@ exampleQueryUserProjectsFragment =
         (extract
             (withDirectives [ ( "include", [ ( "if", Arg.variable includeProjectsVar ) ] ) ]
                 (field "projects"
-                    [ ( "first", Arg.int 1 ) ]
+                    [ ( "first", Arg.int 1 ), ( "ids", Arg.variable projectIdsVar ) ]
                     (list
                         (object ExampleQueryProject
                             |> with (field "id" [] id)
@@ -185,6 +194,7 @@ exampleQueryRequest =
             { userId = "123"
             , userNameKind = ExampleFirstName
             , includeProjects = Just True
+            , projectIds = [ "456" ]
             , secrecyUnits = Nothing
             }
 
@@ -269,7 +279,7 @@ tests =
             exampleQueryRequest
                 |> requestBody
                 |> Expect.equal """fragment userProjectsFragment on User {
-  projects(first: 1) @include(if: $includeProjects) {
+  projects(first: 1, ids: $projectIds) @include(if: $includeProjects) {
     id
     name
     featured
@@ -279,7 +289,7 @@ tests =
   }
 }
 
-query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $secrecyUnits: String = "metric") {
+query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $projectIds: [ID!]!, $secrecyUnits: String = "metric") {
   user(id: $userId) {
     id
     name(kind: $userNameKind)
