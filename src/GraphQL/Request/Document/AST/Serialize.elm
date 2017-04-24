@@ -108,7 +108,7 @@ serializeCoreTypeRef coreTypeRef =
             name
 
         AST.ListTypeRef typeRef ->
-            serializeTypeRef typeRef
+            "[" ++ (serializeTypeRef typeRef) ++ "]"
 
 
 serializeValue : AST.Value variableConstraint -> String
