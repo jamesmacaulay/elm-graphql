@@ -196,7 +196,7 @@ exampleQueryRequest =
                     |> with (field "id" [] id)
                     |> with (field "name" [ ( "kind", Arg.variable userNameKindVar ) ] string)
                     |> with (field "role" [] roleEnum)
-                    |> with (field "createdAt" [] time)
+                    |> with (aliasAs "creationTime" (field "createdAt" [] time))
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
                 )
             )
@@ -218,7 +218,7 @@ exampleSuccessResponse =
             "id": "123",
             "name": "alice",
             "role": "ADMIN",
-            "createdAt": "2017-04-02T19:57:00Z",
+            "creationTime": "2017-04-02T19:57:00Z",
             "projects": [
                 {
                     "id": "456",
@@ -305,7 +305,7 @@ query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = f
     id
     name(kind: $userNameKind)
     role
-    createdAt
+    creationTime: createdAt
     ...userProjectsFragment
   }
 }"""

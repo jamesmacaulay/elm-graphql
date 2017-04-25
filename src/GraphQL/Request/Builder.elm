@@ -196,6 +196,20 @@ type SelectionSpec selectionType result vars
     = SelectionSpec AST.Selection (AST.SelectionSet -> Decoder result) (List (Variable vars)) (List AST.FragmentDefinitionInfo)
 
 
+selectionDecoder :
+    AST.Selection
+    -> (AST.SelectionSet -> Decoder result)
+    -> AST.SelectionSet
+    -> Decoder result
+selectionDecoder selectionAST decoder =
+    case selectionAST of
+        AST.Field fieldInfo ->
+            Decode.field (Util.responseKey fieldInfo) << decoder
+
+        _ ->
+            decoder
+
+
 {-| Indicates that a `SelectionSpec` represents a GraphQL field.
 -}
 type Field
@@ -534,7 +548,7 @@ extract (SelectionSpec selectionAST decoder vars fragments) =
             , selectionSet = AST.SelectionSet [ selectionAST ]
             }
         )
-        decoder
+        (selectionDecoder selectionAST decoder)
         vars
         fragments
 
@@ -546,7 +560,7 @@ field :
     -> List ( String, Arg.Value vars )
     -> ValueSpec nullability coreType result vars
     -> SelectionSpec Field result vars
-field name arguments (ValueSpec sourceType fieldDecoder fieldVars fragments) =
+field name arguments (ValueSpec sourceType decoder fieldVars fragments) =
     let
         astFieldInfo =
             { alias = Nothing
@@ -555,16 +569,6 @@ field name arguments (ValueSpec sourceType fieldDecoder fieldVars fragments) =
             , directives = []
             , selectionSet = selectionSetFromSourceType sourceType
             }
-
-        decoder selectionSet =
-            let
-                fieldInSelectionSet =
-                    astFieldInfo
-
-                responseKey =
-                    Util.responseKey fieldInSelectionSet
-            in
-                Decode.field responseKey (fieldDecoder fieldInSelectionSet.selectionSet)
 
         vars =
             mergeVariables (varsFromArguments arguments) fieldVars
