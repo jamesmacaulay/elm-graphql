@@ -23,6 +23,7 @@ module GraphQL.Request.Builder.Arg
 
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Builder.Variable as Variable
+import GraphQL.Request.Builder.Variable.Util as VarUtil
 
 
 {-| An argument value, which might be either a constant or a variable. The `vars` parameter is the type of Elm value that variables will extract their values from.
@@ -94,13 +95,20 @@ enum symbol =
     Value (AST.EnumValue symbol) []
 
 
+valueVariablesFoldStep : Value vars -> List (Variable.Variable vars) -> List (Variable.Variable vars)
+valueVariablesFoldStep =
+    getVariables >> VarUtil.mergeVariables
+
+
 {-| Constructs a GraphQL Input Object value from a list of key-value pairs.
 -}
 object : List ( String, Value vars ) -> Value vars
 object pairs =
     Value
         (AST.ObjectValue (pairs |> List.map (\( k, Value ast _ ) -> ( k, ast ))))
-        (pairs |> List.concatMap (\( _, Value _ vars ) -> vars))
+        (pairs
+            |> List.foldr (Tuple.second >> valueVariablesFoldStep) []
+        )
 
 
 {-| Constructs a GraphQL List from an Elm `List` of `Value`s.
@@ -109,7 +117,9 @@ list : List (Value vars) -> Value vars
 list values =
     Value
         (AST.ListValue (values |> List.map (\(Value ast _) -> ast)))
-        (values |> List.concatMap (\(Value _ vars) -> vars))
+        (values
+            |> List.foldr valueVariablesFoldStep []
+        )
 
 
 {-| Returns the AST (abstract syntax tree) representation of a `Value`.

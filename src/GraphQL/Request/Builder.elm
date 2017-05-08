@@ -97,8 +97,10 @@ In order to use arguments and variables in your requests, you will need to use f
 -}
 
 import Dict exposing (Dict)
+import GraphQL.CoreUtil.List as ListUtil
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
+import GraphQL.Request.Builder.Variable.Util as VarUtil
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize as Serialize
 import GraphQL.Request.Document.AST.Util as Util
@@ -553,6 +555,11 @@ extract (SelectionSpec selectionAST decoder vars fragments) =
         fragments
 
 
+argumentsAST : List ( String, Arg.Value vars ) -> List ( String, AST.ArgumentValue )
+argumentsAST =
+    List.map (Tuple.mapSecond Arg.getAST)
+
+
 {-| Constructs a `SelectionSpec` for a field that you can add to an object `ValueSpec` with the `with` function. Takes the name of the field, a list of arguments, and a `ValueSpec` for the field's value.
 -}
 field :
@@ -565,13 +572,13 @@ field name arguments (ValueSpec sourceType decoder fieldVars fragments) =
         astFieldInfo =
             { alias = Nothing
             , name = name
-            , arguments = List.map (Tuple.mapSecond Arg.getAST) arguments
+            , arguments = argumentsAST arguments
             , directives = []
             , selectionSet = selectionSetFromSourceType sourceType
             }
 
         vars =
-            mergeVariables (varsFromArguments arguments) fieldVars
+            VarUtil.mergeVariables (varsFromArguments arguments) fieldVars
     in
         SelectionSpec
             (AST.Field astFieldInfo)
@@ -608,7 +615,7 @@ withDirectives directives (SelectionSpec ast decoder vars fragments) =
     SelectionSpec
         (selectionASTWithDirectives directives ast)
         (Decode.maybe << decoder)
-        (mergeVariables (varsFromDirectives directives) vars)
+        (VarUtil.mergeVariables (varsFromDirectives directives) vars)
         fragments
 
 
@@ -824,7 +831,13 @@ inlineFragment maybeTypeCondition spec =
 
 varsFromArguments : List ( String, Arg.Value vars ) -> List (Variable vars)
 varsFromArguments arguments =
-    List.concatMap (Arg.getVariables << Tuple.second) arguments
+    List.foldr
+        (Tuple.second
+            >> Arg.getVariables
+            >> VarUtil.mergeVariables
+        )
+        []
+        arguments
 
 
 {-| A `ValueSpec` for the GraphQL `Int` type that decodes to an Elm `Int`.
@@ -1071,7 +1084,7 @@ map2 f (ValueSpec sourceTypeA decoderA varsA fragmentsA) (ValueSpec sourceTypeB 
             Decode.map2 f (decoderA selectionSet) (decoderB selectionSet)
 
         mergedVariables =
-            mergeVariables varsA varsB
+            VarUtil.mergeVariables varsA varsB
 
         mergedFragments =
             mergeFragments fragmentsA fragmentsB
@@ -1186,7 +1199,7 @@ directiveAST :
 directiveAST ( name, arguments ) =
     AST.Directive
         { name = name
-        , arguments = List.map (Tuple.mapSecond Arg.getAST) arguments
+        , arguments = argumentsAST arguments
         }
 
 
@@ -1233,7 +1246,7 @@ fragmentVariables (Fragment { directives, spec }) =
         (ValueSpec _ _ specVariables _) =
             spec
     in
-        mergeVariables directiveVariables specVariables
+        VarUtil.mergeVariables directiveVariables specVariables
 
 
 documentAST : Document operationType result vars -> AST.Document
@@ -1274,20 +1287,6 @@ specDecoder (ValueSpec sourceType decoderFromSelectionSet _ _) =
     sourceType
         |> selectionSetFromSourceType
         |> decoderFromSelectionSet
-
-
-equalVariableDefinitionAST : Variable a -> Variable a -> Bool
-equalVariableDefinitionAST varA varB =
-    Variable.toDefinitionAST varA == Variable.toDefinitionAST varB
-
-
-mergeVariables : List (Variable source) -> List (Variable source) -> List (Variable source)
-mergeVariables varsA varsB =
-    varsA
-        ++ (varsB
-                |> List.filter
-                    (\var -> not (List.any (equalVariableDefinitionAST var) varsA))
-           )
 
 
 mergeFragments : List AST.FragmentDefinitionInfo -> List AST.FragmentDefinitionInfo -> List AST.FragmentDefinitionInfo

@@ -181,6 +181,7 @@ exampleQueryRequest =
         |> with
             (field "user"
                 [ ( "id", Arg.variable userIdVar )
+                , ( "duplicateUserIdTest", Arg.variable userIdVar )
                 , ( "intListTest"
                   , [ 1, 2, 3 ]
                         |> List.map Arg.int
@@ -194,7 +195,13 @@ exampleQueryRequest =
                 ]
                 (object ExampleQueryUser
                     |> with (field "id" [] id)
-                    |> with (field "name" [ ( "kind", Arg.variable userNameKindVar ) ] string)
+                    |> with
+                        (field "name"
+                            [ ( "kind", Arg.variable userNameKindVar )
+                            , ( "duplicateUserIdTest", Arg.variable userIdVar )
+                            ]
+                            string
+                        )
                     |> with (field "role" [] roleEnum)
                     |> with (aliasAs "creationTime" (field "createdAt" [] time))
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
@@ -224,9 +231,9 @@ exampleQueryRequestExpectedBody =
 }
 
 query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $projectIds: [ID!]!, $secrecyUnits: String = "metric") {
-  user(id: $userId, intListTest: [1, 2, 3], stringListTest: ["foo", "bar", "baz"]) {
+  user(id: $userId, duplicateUserIdTest: $userId, intListTest: [1, 2, 3], stringListTest: ["foo", "bar", "baz"]) {
     id
-    name(kind: $userNameKind)
+    name(kind: $userNameKind, duplicateUserIdTest: $userId)
     role
     creationTime: createdAt
     ...userProjectsFragment
