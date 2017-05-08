@@ -97,7 +97,6 @@ In order to use arguments and variables in your requests, you will need to use f
 -}
 
 import Dict exposing (Dict)
-import GraphQL.CoreUtil.List as ListUtil
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 import GraphQL.Request.Builder.Variable.Util as VarUtil
