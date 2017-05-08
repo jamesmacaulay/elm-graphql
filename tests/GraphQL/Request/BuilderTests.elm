@@ -210,6 +210,30 @@ exampleQueryRequest =
             }
 
 
+exampleQueryRequestExpectedBody : String
+exampleQueryRequestExpectedBody =
+    """fragment userProjectsFragment on User {
+  projects(first: 1, ids: $projectIds) @include(if: $includeProjects) {
+    id
+    name
+    featured
+    ... on SecretProject {
+      secrecyLevel(units: $secrecyUnits)
+    }
+  }
+}
+
+query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $projectIds: [ID!]!, $secrecyUnits: String = "metric") {
+  user(id: $userId, intListTest: [1, 2, 3], stringListTest: ["foo", "bar", "baz"]) {
+    id
+    name(kind: $userNameKind)
+    role
+    creationTime: createdAt
+    ...userProjectsFragment
+  }
+}"""
+
+
 exampleSuccessResponse : String
 exampleSuccessResponse =
     """{
@@ -289,26 +313,7 @@ tests =
         \() ->
             exampleQueryRequest
                 |> requestBody
-                |> Expect.equal """fragment userProjectsFragment on User {
-  projects(first: 1, ids: $projectIds) @include(if: $includeProjects) {
-    id
-    name
-    featured
-    ... on SecretProject {
-      secrecyLevel(units: $secrecyUnits)
-    }
-  }
-}
-
-query ($userId: String!, $userNameKind: NameKind!, $includeProjects: Boolean = false, $projectIds: [ID!]!, $secrecyUnits: String = "metric") {
-  user(id: $userId, intListTest: [1, 2, 3], stringListTest: ["foo", "bar", "baz"]) {
-    id
-    name(kind: $userNameKind)
-    role
-    creationTime: createdAt
-    ...userProjectsFragment
-  }
-}"""
+                |> Expect.equal exampleQueryRequestExpectedBody
     , test "variable values of a request" <|
         \() ->
             exampleQueryRequest
