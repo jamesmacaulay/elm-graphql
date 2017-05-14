@@ -48,6 +48,7 @@ module GraphQL.Request.Builder
         , aliasAs
         , fragmentSpread
         , inlineFragment
+        , map
         )
 
 {-| This module provides an interface for building up GraphQL requests in a way that gives you everything you need to safely and conveniently integrate them with your Elm program:
@@ -85,6 +86,10 @@ In order to use arguments and variables in your requests, you will need to use f
 ## Lists
 
 @docs list
+
+# Customizing the decoding process
+
+@docs map
 
 # Documents
 
@@ -1064,6 +1069,31 @@ produce x =
     ValueSpec AnyType (always (Decode.succeed x)) [] []
 
 
+{-| Transform the decoded value of a `ValueSpec` with the given function, just like `Json.Decode.map`. Here it is used to wrap an `id` field in a custom type:
+
+    type UserId
+        = UserId String
+
+    type alias User =
+        { id : UserId
+        , name : String
+        }
+
+    user : ValueSpec NonNull ObjectType User vars
+    user =
+        object User
+            |> with (field "id" [] (map UserId id))
+            |> with (field "name" [] string)
+
+Here's an example of using `map` with `nullable` to implement a function that can provide a default value for nullable fields:
+
+    nullableWithDefault :
+        a
+        -> ValueSpec NonNull coreType a vars
+        -> ValueSpec Nullable coreType a vars
+    nullableWithDefault default spec =
+        map (Maybe.withDefault default) (nullable spec)
+-}
 map : (a -> b) -> ValueSpec nullability coreType a vars -> ValueSpec nullability coreType b vars
 map f (ValueSpec sourceType decoder vars fragments) =
     ValueSpec sourceType (decoder >> Decode.map f) vars fragments

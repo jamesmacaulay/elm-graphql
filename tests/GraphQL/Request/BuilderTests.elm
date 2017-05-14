@@ -31,8 +31,12 @@ type alias ExampleQueryRoot =
     }
 
 
+type ExampleQueryUserId
+    = ExampleQueryUserId String
+
+
 type alias ExampleQueryUser =
-    { id : String
+    { id : ExampleQueryUserId
     , name : String
     , role : ExampleRole
     , createdAt : Time
@@ -40,8 +44,12 @@ type alias ExampleQueryUser =
     }
 
 
+type ExampleQueryProjectId
+    = ExampleQueryProjectId String
+
+
 type alias ExampleQueryProject =
-    { id : String
+    { id : ExampleQueryProjectId
     , name : String
     , featured : Bool
     , secrecyLevel : Maybe Int
@@ -148,7 +156,7 @@ exampleQueryUserProjectsFragment =
                     [ ( "first", Arg.int 1 ), ( "ids", Arg.variable projectIdsVar ) ]
                     (list
                         (object ExampleQueryProject
-                            |> with (field "id" [] id)
+                            |> with (field "id" [] (map ExampleQueryProjectId id))
                             |> with (field "name" [] string)
                             |> with (field "featured" [] bool)
                             |> with
@@ -194,7 +202,7 @@ exampleQueryRequest =
                   )
                 ]
                 (object ExampleQueryUser
-                    |> with (field "id" [] id)
+                    |> with (field "id" [] (map ExampleQueryUserId id))
                     |> with
                         (field "name"
                             [ ( "kind", Arg.variable userNameKindVar )
@@ -343,13 +351,13 @@ tests =
                 |> Expect.equal
                     (Ok
                         { user =
-                            { id = "123"
+                            { id = ExampleQueryUserId "123"
                             , name = "alice"
                             , role = ExampleAdminRole
                             , createdAt = 1491163020000
                             , projects =
                                 Just
-                                    [ { id = "456"
+                                    [ { id = ExampleQueryProjectId "456"
                                       , name = "Top Secret Project"
                                       , featured = False
                                       , secrecyLevel = Just 9000
