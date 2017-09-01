@@ -9,6 +9,7 @@ import GraphQL.Response as Response
 import Json.Decode as Decode
 import Date exposing (Date)
 import Time exposing (Time)
+import Dict exposing (Dict)
 
 
 testDecoder :
@@ -322,6 +323,102 @@ exampleMutationRequest =
             }
 
 
+userAvatarUrlField : String -> SelectionSpec Field String vars
+userAvatarUrlField name =
+    aliasAs ("user_" ++ name) <|
+        field "user"
+            [ ( "login", Arg.string name ) ]
+            (extract (field "avatarUrl" [] string))
+
+
+projectLogoUrlField : String -> SelectionSpec Field String vars
+projectLogoUrlField projectId =
+    aliasAs ("project_" ++ projectId) <|
+        field "project"
+            [ ( "id", Arg.string projectId ) ]
+            (extract (field "logoUrl" [] string))
+
+
+exampleKeyValuePairsSelections : List (SelectionSpec Field String vars)
+exampleKeyValuePairsSelections =
+    [ userAvatarUrlField "alice"
+    , userAvatarUrlField "bob"
+    , userAvatarUrlField "charlie"
+    , projectLogoUrlField "123"
+    , projectLogoUrlField "456"
+    ]
+
+
+exampleKeyValuePairsQueryRequest : Request Query (List ( String, String ))
+exampleKeyValuePairsQueryRequest =
+    exampleKeyValuePairsSelections
+        |> keyValuePairs
+        |> queryDocument
+        |> request ()
+
+
+exampleDictQueryRequest : Request Query (Dict String String)
+exampleDictQueryRequest =
+    exampleKeyValuePairsSelections
+        |> dict
+        |> queryDocument
+        |> request ()
+
+
+exampleKeyValuePairsQueryRequestExpectedBody : String
+exampleKeyValuePairsQueryRequestExpectedBody =
+    """query {
+  user_alice: user(login: "alice") {
+    avatarUrl
+  }
+  user_bob: user(login: "bob") {
+    avatarUrl
+  }
+  user_charlie: user(login: "charlie") {
+    avatarUrl
+  }
+  project_123: project(id: "123") {
+    logoUrl
+  }
+  project_456: project(id: "456") {
+    logoUrl
+  }
+}"""
+
+
+exampleKeyValuePairsResponse : String
+exampleKeyValuePairsResponse =
+    """{
+    "data": {
+        "user_alice": {
+            "avatarUrl": "https://cdn.example.com/user_alice.png"
+        },
+        "user_bob": {
+            "avatarUrl": "https://cdn.example.com/user_bob.png"
+        },
+        "user_charlie": {
+            "avatarUrl": "https://cdn.example.com/user_charlie.png"
+        },
+        "project_123": {
+            "logoUrl": "https://cdn.example.com/project_123.png"
+        },
+        "project_456": {
+            "logoUrl": "https://cdn.example.com/project_456.png"
+        }
+    }
+}"""
+
+
+exampleKeyValuePairsDecoded : List ( String, String )
+exampleKeyValuePairsDecoded =
+    [ ( "user_alice", "https://cdn.example.com/user_alice.png" )
+    , ( "user_bob", "https://cdn.example.com/user_bob.png" )
+    , ( "user_charlie", "https://cdn.example.com/user_charlie.png" )
+    , ( "project_123", "https://cdn.example.com/project_123.png" )
+    , ( "project_456", "https://cdn.example.com/project_456.png" )
+    ]
+
+
 tests : List Test.Test
 tests =
     [ test "encoding a request" <|
@@ -390,6 +487,28 @@ tests =
     token
   }
 }"""
+    , test "encoding a keyValuePairs query" <|
+        \() ->
+            exampleKeyValuePairsQueryRequest
+                |> requestBody
+                |> Expect.equal exampleKeyValuePairsQueryRequestExpectedBody
+    , test "encoding a dict query" <|
+        \() ->
+            exampleDictQueryRequest
+                |> requestBody
+                |> Expect.equal exampleKeyValuePairsQueryRequestExpectedBody
+    , test "decoding a keyValuePairs response" <|
+        \() ->
+            exampleKeyValuePairsResponse
+                |> Decode.decodeString
+                    (Decode.field "data" (responseDataDecoder exampleKeyValuePairsQueryRequest))
+                |> Expect.equal (Ok exampleKeyValuePairsDecoded)
+    , test "decoding a dict response" <|
+        \() ->
+            exampleKeyValuePairsResponse
+                |> Decode.decodeString
+                    (Decode.field "data" (responseDataDecoder exampleDictQueryRequest))
+                |> Expect.equal (Ok (Dict.fromList exampleKeyValuePairsDecoded))
     ]
 
 

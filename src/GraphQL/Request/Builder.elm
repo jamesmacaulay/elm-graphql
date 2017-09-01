@@ -43,6 +43,8 @@ module GraphQL.Request.Builder
         , extract
         , with
         , withDirectives
+        , keyValuePairs
+        , dict
         , assume
         , field
         , aliasAs
@@ -65,7 +67,7 @@ In order to use arguments and variables in your requests, you will need to use f
 
 ## Objects and selections
 
-@docs object, SelectionSpec, with, extract, assume, withDirectives
+@docs object, SelectionSpec, with, extract, assume, withDirectives, keyValuePairs, dict
 
 ### Fields
 
@@ -488,6 +490,35 @@ fragment name typeCondition spec =
 onType : String -> TypeCondition
 onType =
     AST.TypeCondition
+
+
+keyValuePairs :
+    List (SelectionSpec Field value vars)
+    -> ValueSpec NonNull ObjectType (List ( String, value )) vars
+keyValuePairs selections =
+    List.foldr
+        (\((SelectionSpec ast _ _ _) as selection) accSpec ->
+            case ast of
+                AST.Field fieldInfo ->
+                    let
+                        keyValueSpec =
+                            extract selection
+                                |> map (\value -> ( Util.responseKey fieldInfo, value ))
+                    in
+                        map2 (::) keyValueSpec accSpec
+
+                _ ->
+                    accSpec
+        )
+        (produce [])
+        selections
+
+
+dict :
+    List (SelectionSpec Field value vars)
+    -> ValueSpec NonNull ObjectType (Dict String value) vars
+dict =
+    keyValuePairs >> map Dict.fromList
 
 
 {-| Takes a constructor function for an Elm type you want to produce, and returns a `ValueSpec` for an object without any fields yet specified. This function is intended to start a pipeline of calls to the `with` function to add field and fragment selections to the `ValueSpec`. The order of arguments to the constructor function determines the order that the selections must be added. For example:
