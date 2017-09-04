@@ -492,6 +492,35 @@ onType =
     AST.TypeCondition
 
 
+{-| Takes a list of field selections, all of whom must decode to the same Elm type, and returns a `ValueSpec` for an object that decodes to a list of corresponding `(key, value)` pairs. Especially useful when you want to dynamically query multiple variations of the same field using aliases. For example:
+
+    userAvatarUrlField : String -> SelectionSpec Field String vars
+    userAvatarUrlField name =
+        aliasAs name <|
+            field "user"
+                [ ( "login", Arg.string name ) ]
+                (extract (field "avatarUrl" [] string))
+
+    userAvatarUrls : List String -> Document Query (List (String, String)) vars
+    userAvatarUrls names =
+        queryDocument <|
+            keyValuePairs (List.map userAvatarUrlField names)
+
+If you used this code to construct a query document with `userAvatarUrls ["alice", "bob"]`, the resulting query would look like this:
+
+    alice: user(login: "alice") {
+      avatarUrl
+    }
+    bob: user(login: "bob") {
+      avatarUrl
+    }
+
+...and a successful decoded result would look something like this:
+
+    [ ("alice", "https://cdn.example.com/alice.png")
+    , ("bob", "https://cdn.example.com/bob.png")
+    ]
+-}
 keyValuePairs :
     List (SelectionSpec Field value vars)
     -> ValueSpec NonNull ObjectType (List ( String, value )) vars
@@ -514,6 +543,8 @@ keyValuePairs selections =
         selections
 
 
+{-| Just like `keyValuePairs`, but the decoded result is a `Dict String value` constructed by applying `Dict.fromList` to the decoded result of `keyValuePairs`.
+-}
 dict :
     List (SelectionSpec Field value vars)
     -> ValueSpec NonNull ObjectType (Dict String value) vars
