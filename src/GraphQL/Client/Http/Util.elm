@@ -1,10 +1,10 @@
 module GraphQL.Client.Http.Util exposing (..)
 
-import Json.Encode
-import Json.Decode
-import Http
-import Time exposing (Time)
 import GraphQL.Response as Response
+import Http
+import Json.Decode
+import Json.Encode
+import Time exposing (Time)
 
 
 postBodyJson : String -> Maybe Json.Encode.Value -> Json.Encode.Value
@@ -75,12 +75,12 @@ type Error
     | GraphQLError (List RequestError)
 
 
-type alias RequestConfig a =
+type alias RequestConfig =
     { method : String
     , headers : List Http.Header
     , url : String
     , body : Http.Body
-    , expect : Http.Expect a
+    , expect : Http.Expect (Http.Response String)
     , timeout : Maybe Time
     , withCredentials : Bool
     }
@@ -99,14 +99,10 @@ defaultRequestOptions url =
 requestConfig :
     RequestOptions
     -> String
-    -> Json.Decode.Decoder a
     -> Maybe Json.Encode.Value
-    -> RequestConfig a
-requestConfig requestOptions documentString dataDecoder variableValues =
+    -> RequestConfig
+requestConfig requestOptions documentString variableValues =
     let
-        decoder =
-            Json.Decode.field "data" dataDecoder
-
         ( url, body ) =
             if requestOptions.method == "GET" then
                 ( parameterizedUrl requestOptions.url documentString variableValues, Http.emptyBody )
@@ -117,7 +113,7 @@ requestConfig requestOptions documentString dataDecoder variableValues =
         , headers = requestOptions.headers
         , url = url
         , body = body
-        , expect = Http.expectJson decoder
+        , expect = Http.expectStringResponse (\val -> Ok val)
         , timeout = requestOptions.timeout
         , withCredentials = requestOptions.withCredentials
         }
