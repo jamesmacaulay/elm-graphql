@@ -5,9 +5,7 @@ module GraphQL.Client.Http
         , Error(..)
         , RequestOptions
         , sendQuery
-        , sendQueryRaw
         , sendMutation
-        , sendMutationRaw
         , customSendQuery
         , customSendQueryRaw
         , customSendMutation
@@ -62,16 +60,6 @@ sendQuery url request =
     parseResponse request <| sendQueryRaw url request
 
 
-{-| Takes a URL and a `Query` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint and return raw `Http.Response` in Task.
--}
-sendQueryRaw :
-    String
-    -> Builder.Request Builder.Query result
-    -> Task Error (Http.Response String)
-sendQueryRaw =
-    Util.defaultRequestOptions >> send
-
-
 {-| Takes a URL and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint.
 -}
 sendMutation :
@@ -80,16 +68,6 @@ sendMutation :
     -> Task Error result
 sendMutation url request =
     parseResponse request <| sendMutationRaw url request
-
-
-{-| Takes a URL and a `Mutation` `Request` and returns a `Task` that you can perform with `Task.attempt` which will send a `POST` request to a GraphQL server at the given endpoint and return raw `Http.Response` in Task.
--}
-sendMutationRaw :
-    String
-    -> Builder.Request Builder.Mutation result
-    -> Task Error (Http.Response String)
-sendMutationRaw =
-    Util.defaultRequestOptions >> send
 
 
 {-| Options available for customizing GraphQL HTTP requests. `method` should be either `"GET"` or `"POST"`. For `GET` requests, the `url` is modified to include extra parameters in the query string for the GraphQL document and variables. Otherwise, the document and variables are included in the HTTP request body.
