@@ -75,12 +75,12 @@ type Error
     | GraphQLError (List RequestError)
 
 
-type alias RequestConfig =
+type alias RequestConfig a =
     { method : String
     , headers : List Http.Header
     , url : String
     , body : Http.Body
-    , expect : Http.Expect (Http.Response String)
+    , expect : Http.Expect a
     , timeout : Maybe Time
     , withCredentials : Bool
     }
@@ -99,9 +99,10 @@ defaultRequestOptions url =
 requestConfig :
     RequestOptions
     -> String
+    -> Http.Expect a
     -> Maybe Json.Encode.Value
-    -> RequestConfig
-requestConfig requestOptions documentString variableValues =
+    -> RequestConfig a
+requestConfig requestOptions documentString expect variableValues =
     let
         ( url, body ) =
             if requestOptions.method == "GET" then
@@ -113,7 +114,7 @@ requestConfig requestOptions documentString variableValues =
         , headers = requestOptions.headers
         , url = url
         , body = body
-        , expect = Http.expectStringResponse (\val -> Ok val)
+        , expect = expect
         , timeout = requestOptions.timeout
         , withCredentials = requestOptions.withCredentials
         }
