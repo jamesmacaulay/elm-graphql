@@ -1,5 +1,5 @@
 {
-    "version": "1.6.0",
+    "version": "1.6.1",
     "summary": "A GraphQL request builder and HTTP client",
     "repository": "https://github.com/jamesmacaulay/elm-graphql.git",
     "license": "BSD3",
