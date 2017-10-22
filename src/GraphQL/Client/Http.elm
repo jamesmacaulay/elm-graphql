@@ -207,7 +207,11 @@ send :
     -> Builder.Request operationType result
     -> Task Error result
 send options request =
-    sendExpecting (Http.expectJson (Builder.responseDataDecoder request)) options request
+    let
+        expect =
+            Util.defaultExpect (Builder.responseDataDecoder request)
+    in
+        sendExpecting expect options request
 
 
 sendExpecting :

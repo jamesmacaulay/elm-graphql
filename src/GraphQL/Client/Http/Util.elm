@@ -120,6 +120,11 @@ requestConfig requestOptions documentString expect variableValues =
         }
 
 
+defaultExpect : Json.Decode.Decoder result -> Http.Expect result
+defaultExpect =
+    Http.expectJson << Json.Decode.field "data"
+
+
 errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
 errorsResponseDecoder =
     Json.Decode.field "errors" Response.errorsDecoder
