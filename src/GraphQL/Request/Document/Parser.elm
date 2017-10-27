@@ -244,7 +244,7 @@ queryShorthand =
 selectionSet : Parser s AST.SelectionSet
 selectionSet =
     string "{"
-        *> many (ignored *> selection)
+        *> many (ignored *> lazy (\_ -> selection))
         <* ignored
         <* string "}"
         |> map AST.SelectionSet
