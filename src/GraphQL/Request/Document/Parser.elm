@@ -2,8 +2,7 @@ module GraphQL.Request.Document.Parser exposing (parseDocument)
 
 import GraphQL.Request.Document.AST as AST
 import Combine exposing (..)
-import Hex
-import Char.CodePoint
+import Json.Decode
 
 
 parseDocument : String -> Result (ParseErr ()) (ParseOk () AST.Document)
@@ -122,8 +121,8 @@ floatValue =
 
 escapedUnicode : Parser s String
 escapedUnicode =
-    (string "\\u" *> regex "[0-9A-Fa-f]{4}")
-        |> map (Hex.fromString >> Result.map Char.CodePoint.toString)
+    (regex "\\\\u[0-9A-Fa-f]{4}")
+        |> map (\code -> Json.Decode.decodeString Json.Decode.string ("\"" ++ code ++ "\""))
         |> unwrapResult
 
 
