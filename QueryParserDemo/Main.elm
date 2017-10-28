@@ -30,14 +30,20 @@ main =
 exampleQuery : String
 exampleQuery =
     """
-{
-  user(id: "abc123") {
-    id
-    name
-    email
-    projects(first: 10) {
+fragment projectFields on Project {
+  id
+  name
+}
+
+query ($count: Int!) {
+  node(id: "abc123") {
+    ... on User {
       id
       name
+      email
+      projects(first: $count) {
+        ... projectFields
+      }
     }
   }
 }

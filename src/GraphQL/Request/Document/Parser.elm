@@ -71,10 +71,12 @@ integerPartRE =
     "-?(?:0|[1-9][0-9]*)"
 
 
+fractionalPartRE : String
 fractionalPartRE =
     ".[0-9]+"
 
 
+exponentPartRE : String
 exponentPartRE =
     "[eE][+-]?[0-9]+"
 
@@ -253,12 +255,8 @@ selectionSet =
 selection : Parser s AST.Selection
 selection =
     field
-
-
-
--- TODO:
--- <|> fragmentSpread
--- <|> inlineFragment
+        <|> fragmentSpread
+        <|> lazy (\_ -> inlineFragment)
 
 
 alias : Parser s String
@@ -295,17 +293,128 @@ field =
         <$> (maybe alias)
         <*> (ignored *> name)
         <*> (ignored *> (maybe arguments |> map (Maybe.withDefault [])))
-        <*> (ignored *> directives)
-        <*> (ignored *> (lazy (\_ -> selectionSet |> maybe |> map (Maybe.withDefault (AST.SelectionSet [])))))
+        <*> directives
+        <*> (ignored *> (lazy (\_ -> maybe selectionSet |> map (Maybe.withDefault (AST.SelectionSet [])))))
         |> map AST.Field
+
+
+fragmentName : Parser s String
+fragmentName =
+    name
+        |> andThen
+            (\name ->
+                if name == "on" then
+                    fail "invalid fragment name \"on\""
+                else
+                    succeed name
+            )
+
+
+fragmentSpread : Parser s AST.Selection
+fragmentSpread =
+    AST.FragmentSpreadInfo
+        <$> (string "..." *> ignored *> fragmentName)
+        <*> directives
+        |> map AST.FragmentSpread
+
+
+typeCondition : Parser s AST.TypeCondition
+typeCondition =
+    (string "on" *> ignored *> name)
+        |> map AST.TypeCondition
+
+
+inlineFragment : Parser s AST.Selection
+inlineFragment =
+    AST.InlineFragmentInfo
+        <$> (string "..." *> ignored *> (maybe typeCondition))
+        <*> directives
+        <*> (ignored *> selectionSet)
+        |> map AST.InlineFragment
 
 
 document : Parser s AST.Document
 document =
-    (many (ignored *> definition) <* ignored)
+    (many1 (ignored *> definition) <* ignored <* end)
         |> map AST.Document
 
 
 definition : Parser s AST.Definition
 definition =
-    queryShorthand
+    operationDefinition
+        <|> queryShorthand
+        <|> fragmentDefinition
+
+
+variable : Parser s String
+variable =
+    string "$" *> ignored *> name
+
+
+namedType : Parser s AST.CoreTypeRef
+namedType =
+    map AST.NamedTypeRef name
+
+
+listType : Parser s AST.CoreTypeRef
+listType =
+    (string "[" *> ignored *> lazy (\_ -> typeRef) <* ignored <* string "]")
+        |> map AST.ListTypeRef
+
+
+coreTypeRef : Parser s AST.CoreTypeRef
+coreTypeRef =
+    namedType <|> lazy (\_ -> listType)
+
+
+nullability : Parser s AST.Nullability
+nullability =
+    (string "!" $> AST.NonNull) <|> (string "" $> AST.Nullable)
+
+
+typeRef : Parser s AST.TypeRef
+typeRef =
+    (flip AST.TypeRef)
+        <$> lazy (\_ -> coreTypeRef)
+        <*> (ignored *> nullability)
+
+
+variableDefinition : Parser s AST.VariableDefinition
+variableDefinition =
+    AST.VariableDefinitionInfo
+        <$> (variable <* ignored <* string ":")
+        <*> (ignored *> typeRef)
+        <*> (ignored *> maybe constantValue)
+        |> map AST.VariableDefinition
+
+
+variableDefinitions : Parser s (List AST.VariableDefinition)
+variableDefinitions =
+    string "(" *> many (ignored *> variableDefinition) <* ignored <* string ")"
+
+
+operationType : Parser s AST.OperationType
+operationType =
+    (string "query" $> AST.Query)
+        <|> (string "mutation" $> AST.Mutation)
+
+
+operationDefinition : Parser s AST.Definition
+operationDefinition =
+    AST.OperationDefinitionInfo
+        <$> operationType
+        <*> (ignored *> (maybe name))
+        <*> (ignored *> (maybe variableDefinitions |> map (Maybe.withDefault [])))
+        <*> directives
+        <*> (ignored *> selectionSet)
+        |> map AST.OperationDefinition
+
+
+fragmentDefinition : Parser s AST.Definition
+fragmentDefinition =
+    AST.FragmentDefinitionInfo
+        <$> (string "fragment" *> ignored *> fragmentName)
+        <*> (ignored *> typeCondition)
+        <*> directives
+        <*> (ignored *> selectionSet)
+        |> map AST.FragmentDefinition
