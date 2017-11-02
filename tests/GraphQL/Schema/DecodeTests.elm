@@ -178,6 +178,36 @@ inputObjectTypeJSON =
     """
 
 
+invalidInputObjectTypeWithDoubleWrappedNonNullJSON =
+    """
+    {
+        "kind": "INPUT_OBJECT",
+        "name": "ThingInput",
+        "description": "input object for a thing",
+        "inputFields": [
+            {
+                "name": "grams",
+                "description": null,
+                "type": {
+                    "kind": "NON_NULL",
+                    "name": null,
+                    "ofType": {
+                        "kind": "NON_NULL",
+                        "name": null,
+                        "ofType": {
+                            "kind": "SCALAR",
+                            "name": "Float",
+                            "ofType": null
+                        }
+                    }
+                },
+                "defaultValue": "0"
+            }
+        ]
+    }
+    """
+
+
 directiveJSON =
     """
     {
@@ -267,16 +297,16 @@ tests =
                                   , args =
                                         [ { name = "inPounds"
                                           , description = Just "get the mass in pounds"
-                                          , valueType = Schema.Ref "Boolean"
+                                          , valueType = Schema.TypeRef Schema.Nullable (Schema.NamedTypeRef "Boolean")
                                           , defaultValue = Just "false"
                                           }
                                         ]
-                                  , valueType = Schema.NonNull (Schema.Ref "Float")
+                                  , valueType = Schema.TypeRef Schema.NonNull (Schema.NamedTypeRef "Float")
                                   , isDeprecated = True
                                   , deprecationReason = Just "no good reason"
                                   }
                                 ]
-                            , interfaces = [ Schema.Ref "Massive" ]
+                            , interfaces = [ Schema.TypeRef Schema.Nullable (Schema.NamedTypeRef "Massive") ]
                             }
                         )
                     )
@@ -289,7 +319,7 @@ tests =
                         (Schema.UnionType
                             { name = "OnlyThing"
                             , description = Just "A union of Thing and nothing else."
-                            , possibleTypes = [ Schema.Ref "Thing" ]
+                            , possibleTypes = [ Schema.TypeRef Schema.Nullable (Schema.NamedTypeRef "Thing") ]
                             }
                         )
                     )
@@ -308,16 +338,16 @@ tests =
                                   , args =
                                         [ { name = "inPounds"
                                           , description = Just "get the mass in pounds"
-                                          , valueType = Schema.Ref "Boolean"
+                                          , valueType = Schema.TypeRef Schema.Nullable (Schema.NamedTypeRef "Boolean")
                                           , defaultValue = Just "false"
                                           }
                                         ]
-                                  , valueType = Schema.NonNull (Schema.Ref "Float")
+                                  , valueType = Schema.TypeRef Schema.NonNull (Schema.NamedTypeRef "Float")
                                   , isDeprecated = True
                                   , deprecationReason = Just "no good reason"
                                   }
                                 ]
-                            , possibleTypes = [ Schema.Ref "Thing" ]
+                            , possibleTypes = [ Schema.TypeRef Schema.Nullable (Schema.NamedTypeRef "Thing") ]
                             }
                         )
                     )
@@ -357,13 +387,20 @@ tests =
                             , inputFields =
                                 [ { name = "grams"
                                   , description = Nothing
-                                  , valueType = Schema.NonNull (Schema.Ref "Float")
+                                  , valueType = Schema.TypeRef Schema.NonNull (Schema.NamedTypeRef "Float")
                                   , defaultValue = Just "0"
                                   }
                                 ]
                             }
                         )
                     )
+    , test "inputObjectTypeDecoder with invalid double-wrapped NON_NULL" <|
+        \() ->
+            invalidInputObjectTypeWithDoubleWrappedNonNullJSON
+                |> Decode.decodeString GraphQL.Schema.Decode.inputObjectTypeDecoder
+                |> Result.mapError (String.contains "invalid double-wrapped NON_NULL type")
+                |> Expect.equal
+                    (Err True)
     , test "directiveDecoder" <|
         \() ->
             directiveJSON
@@ -380,7 +417,7 @@ tests =
                         , args =
                             [ { name = "if"
                               , description = Just "Included when true."
-                              , valueType = Schema.NonNull (Schema.Ref "Boolean")
+                              , valueType = Schema.TypeRef Schema.NonNull (Schema.NamedTypeRef "Boolean")
                               , defaultValue = Nothing
                               }
                             ]

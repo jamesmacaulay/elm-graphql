@@ -22,9 +22,17 @@ type NamedType
 
 
 type TypeRef
-    = Ref String
-    | List TypeRef
-    | NonNull TypeRef
+    = TypeRef Nullability CoreTypeRef
+
+
+type Nullability
+    = Nullable
+    | NonNull
+
+
+type CoreTypeRef
+    = NamedTypeRef String
+    | ListTypeRef TypeRef
 
 
 type alias ScalarTypeInfo =

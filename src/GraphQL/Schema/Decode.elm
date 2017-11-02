@@ -113,6 +113,25 @@ inputObjectTypeDecoder =
         |> Decode.map Schema.InputObjectType
 
 
+coreTypeRefDecoder : Decoder Schema.CoreTypeRef
+coreTypeRefDecoder =
+    field "kind" string
+        |> Decode.andThen
+            (\kind ->
+                case kind of
+                    "LIST" ->
+                        (field "ofType" typeRefDecoder)
+                            |> Decode.map Schema.ListTypeRef
+
+                    "NON_NULL" ->
+                        Decode.fail "invalid double-wrapped NON_NULL type"
+
+                    _ ->
+                        (field "name" string)
+                            |> Decode.map Schema.NamedTypeRef
+            )
+
+
 typeRefDecoder : Decoder Schema.TypeRef
 typeRefDecoder =
     field "kind" string
@@ -121,15 +140,15 @@ typeRefDecoder =
                 case kind of
                     "LIST" ->
                         (field "ofType" typeRefDecoder)
-                            |> Decode.map Schema.List
+                            |> Decode.map (Schema.TypeRef Schema.Nullable << Schema.ListTypeRef)
 
                     "NON_NULL" ->
-                        (field "ofType" typeRefDecoder)
-                            |> Decode.map Schema.NonNull
+                        (field "ofType" coreTypeRefDecoder)
+                            |> Decode.map (Schema.TypeRef Schema.NonNull)
 
                     _ ->
                         (field "name" string)
-                            |> Decode.map Schema.Ref
+                            |> Decode.map (Schema.TypeRef Schema.Nullable << Schema.NamedTypeRef)
             )
 
 
