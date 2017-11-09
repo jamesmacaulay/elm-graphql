@@ -42,6 +42,7 @@ module GraphQL.Request.Builder
         , object
         , extract
         , with
+        , withLocalConstant
         , withDirectives
         , keyValuePairs
         , dict
@@ -67,7 +68,7 @@ In order to use arguments and variables in your requests, you will need to use f
 
 ## Objects and selections
 
-@docs object, SelectionSpec, with, extract, assume, withDirectives, keyValuePairs, dict
+@docs object, SelectionSpec, with, withLocalConstant, extract, assume, withDirectives, keyValuePairs, dict
 
 ### Fields
 
@@ -1208,6 +1209,29 @@ with :
     -> ValueSpec NonNull ObjectType b vars
 with selection objectSpec =
     map2 (<|) objectSpec (extract selection)
+
+
+{-| Adds a hardcoded local constant value to an object `ValueSpec` pipeline. This can be useful for initializing records with default local state values:
+
+    type alias Item =
+        { name : String
+        , selected : Bool
+        }
+
+    itemSpec : ValueSpec NonNull ObjectType Item vars
+    itemSpec =
+        object Item
+            |> with (field "name" [] string)
+            |> withLocalConstant False
+
+Any `Item` record decoded by `itemSpec` would then have its `selected` field initialized to `False`. Adding a local constant in this way has no effect on the corresponding GraphQL selection set that is sent to the server — `itemSpec`'s selection set would simply be `{ name }`.
+-}
+withLocalConstant :
+    a
+    -> ValueSpec NonNull ObjectType (a -> b) vars
+    -> ValueSpec NonNull ObjectType b vars
+withLocalConstant x objectSpec =
+    map2 (<|) objectSpec (produce x)
 
 
 enumJoin : EnumType -> EnumType -> EnumType

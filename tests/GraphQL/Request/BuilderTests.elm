@@ -54,6 +54,7 @@ type alias ExampleQueryProject =
     , name : String
     , featured : Bool
     , secrecyLevel : Maybe Int
+    , selected : Bool
     }
 
 
@@ -169,6 +170,7 @@ exampleQueryUserProjectsFragment =
                                         )
                                     )
                                 )
+                            |> withLocalConstant False
                         )
                     )
                 )
@@ -458,6 +460,7 @@ tests =
                                       , name = "Top Secret Project"
                                       , featured = False
                                       , secrecyLevel = Just 9000
+                                      , selected = False
                                       }
                                     ]
                             }
