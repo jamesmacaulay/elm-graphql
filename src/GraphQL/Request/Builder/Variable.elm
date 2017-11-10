@@ -17,6 +17,7 @@ module GraphQL.Request.Builder.Variable
         , list
         , object
         , field
+        , optionalField
         , name
         , toDefinitionAST
         , extractValuesFrom
@@ -24,7 +25,7 @@ module GraphQL.Request.Builder.Variable
 
 {-| The functions in this module let you define GraphQL variables that you can pass as arguments in your request documents built with the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
-@docs VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, enum, nullable, list, object, field, name, toDefinitionAST, extractValuesFrom
+@docs VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, enum, nullable, list, object, field, optionalField, name, toDefinitionAST, extractValuesFrom
 -}
 
 import GraphQL.Request.Document.AST as AST
@@ -59,7 +60,7 @@ type Variable source
 {-| Describes a single field of a GraphQL Input Object type.
 -}
 type Field source
-    = Field String TypeRef (source -> AST.ConstantValue)
+    = Field String TypeRef (source -> Maybe AST.ConstantValue)
 
 
 {-| Construct a `Variable` that has no default value, and therefore must extract its value from a `source`. The first argument is the name of the variable that appears in the GraphQL request document, and must be unique for that document. It should _not_ include any leading dollar sign (`$`). The second argument is a function that extracts a value of the required type from a `source`. The third argument is a `VariableSpec` that describes the type of the variable.
@@ -179,7 +180,7 @@ object typeName fields =
     VariableSpec
         NonNull
         (TypeRef.namedType typeName)
-        (\source -> AST.ObjectValue (List.map (fieldTuple source) fields))
+        (\source -> AST.ObjectValue (List.filterMap (fieldTuple source) fields))
 
 
 {-| Constructs a `Field` to be passed to the `object` function. The first argument is the name of the field. The second argument is a function that extracts this field's value from the value that represents the whole object. See the documentation for `object` for more details.
@@ -190,12 +191,45 @@ field :
     -> VariableSpec nullability fieldVariableSource
     -> Field objVariableSource
 field name extract (VariableSpec _ typeRef convert) =
-    Field name typeRef (extract >> convert)
+    Field name typeRef (extract >> convert >> Just)
 
 
-fieldTuple : source -> Field source -> ( String, AST.ConstantValue )
+{-| Like `field`, except the extractor function must return a `Maybe` value. When the extracted value is `Nothing`, the field is not included in the object sent to the server at all. This works in a very similar way to the `optional` function, except that `optional` is used for entire optional variables while `optionalField` is used for optional fields of variable input objects.
+
+The `VariableSpec` provided as the third argument may either be `Nullable` or `NonNull`. If the `VariableSpec` is `NonNull`, then the extracted value is wrapped in a single `Maybe` as described above. If it is `Nullable`, then a double-Maybe-wrapped value is extracted from the variables value. In this case, `Nothing` indicates that the field should be omitted, `Just Nothing` indicates an explicit `null` value, and `Just (Just x)` indicates a regular non-null value. In both cases, this function should never be used with fields of input objects that have been defined as non-null by the schema.
+
+In the following example, both the `phoneNumber` and `email` fields are optional. However, only the `phoneNumber` field may be assigned an explicit `null` value (represented by `Just Nothing`):
+
+    type alias UpdateUserInputData =
+        { id : String
+        , email : Maybe String
+        , phoneNumber : Maybe (Maybe String)
+        }
+
+    userDataVar : Variable { vars | userData : UpdateUserInputData }
+    userDataVar =
+        required "userData"
+            .userData
+            (object "UpdateUserInput"
+                [ field "id" .id id
+                , optionalField "email" .email string
+                , optionalField "phoneNumber" .phoneNumber (nullable string)
+                ]
+            )
+-}
+optionalField :
+    String
+    -> (objVariableSource -> Maybe fieldVariableSource)
+    -> VariableSpec nullability fieldVariableSource
+    -> Field objVariableSource
+optionalField name extract (VariableSpec _ typeRef convert) =
+    Field name typeRef (extract >> Maybe.map convert)
+
+
+fieldTuple : source -> Field source -> Maybe ( String, AST.ConstantValue )
 fieldTuple source (Field name _ convert) =
-    ( name, convert source )
+    convert source
+        |> Maybe.map (\value -> ( name, value ))
 
 
 valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue )

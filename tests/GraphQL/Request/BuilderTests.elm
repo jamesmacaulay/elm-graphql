@@ -7,6 +7,7 @@ import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Response as Response
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Date exposing (Date)
 import Time exposing (Time)
 import Dict exposing (Dict)
@@ -325,6 +326,35 @@ exampleMutationRequest =
             }
 
 
+type alias UpdateUserInputData =
+    { id : String
+    , email : Maybe String
+    , phoneNumber : Maybe (Maybe String)
+    }
+
+
+userDataVar : Var.Variable { vars | userData : UpdateUserInputData }
+userDataVar =
+    Var.required "userData"
+        .userData
+        (Var.object "UpdateUserInput"
+            [ Var.field "id" .id Var.id
+            , Var.optionalField "email" .email Var.string
+            , Var.optionalField "phoneNumber" .phoneNumber (Var.nullable Var.string)
+            ]
+        )
+
+
+optionalFieldVariableMutationDocument : Document Mutation String { userData : UpdateUserInputData }
+optionalFieldVariableMutationDocument =
+    mutationDocument <|
+        extract
+            (field "updateUser"
+                [ ( "userData", Arg.variable userDataVar ) ]
+                (extract (field "updateToken" [] string))
+            )
+
+
 userAvatarUrlField : String -> SelectionSpec Field String vars
 userAvatarUrlField name =
     aliasAs ("user_" ++ name) <|
@@ -490,6 +520,48 @@ tests =
     token
   }
 }"""
+    , test "mutation with omitted email and explicit null phoneNumber" <|
+        \() ->
+            optionalFieldVariableMutationDocument
+                |> request
+                    { userData =
+                        { id = "user:123"
+                        , email = Nothing
+                        , phoneNumber = Just Nothing
+                        }
+                    }
+                |> jsonVariableValues
+                |> Maybe.map (Encode.encode 0)
+                |> Expect.equal
+                    (Just "{\"userData\":{\"id\":\"user:123\",\"phoneNumber\":null}}")
+    , test "mutation with omitted email and included phoneNumber" <|
+        \() ->
+            optionalFieldVariableMutationDocument
+                |> request
+                    { userData =
+                        { id = "user:123"
+                        , email = Nothing
+                        , phoneNumber = Just (Just "555-1212")
+                        }
+                    }
+                |> jsonVariableValues
+                |> Maybe.map (Encode.encode 0)
+                |> Expect.equal
+                    (Just "{\"userData\":{\"id\":\"user:123\",\"phoneNumber\":\"555-1212\"}}")
+    , test "mutation with included email and omitted phoneNumber" <|
+        \() ->
+            optionalFieldVariableMutationDocument
+                |> request
+                    { userData =
+                        { id = "user:123"
+                        , email = Just "alice@example.com"
+                        , phoneNumber = Nothing
+                        }
+                    }
+                |> jsonVariableValues
+                |> Maybe.map (Encode.encode 0)
+                |> Expect.equal
+                    (Just "{\"userData\":{\"id\":\"user:123\",\"email\":\"alice@example.com\"}}")
     , test "encoding a keyValuePairs query" <|
         \() ->
             exampleKeyValuePairsQueryRequest
