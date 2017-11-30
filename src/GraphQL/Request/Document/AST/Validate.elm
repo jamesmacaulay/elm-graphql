@@ -36,7 +36,7 @@ validateOperationNameUniqueness document =
 
 validateLoneAnonymousOperation : AST.Document -> Maybe Error
 validateLoneAnonymousOperation ((AST.Document definitions) as document) =
-    if List.length definitions > 1 && isQueryShorthandPresent document then
+    if List.length definitions > 1 && isAnonymousOperationPresent document then
         Just LoneAnonymousOperationError
     else
         Nothing
@@ -200,10 +200,10 @@ duplicateOperationNames (AST.Document definitions) =
         |> duplicates
 
 
-isQueryShorthandPresent : AST.Document -> Bool
-isQueryShorthandPresent (AST.Document definitions) =
+isAnonymousOperationPresent : AST.Document -> Bool
+isAnonymousOperationPresent (AST.Document definitions) =
     definitions
-        |> List.filter isQueryShorthand
+        |> List.filter isAnonymousOperation
         |> List.isEmpty
         |> not
 
@@ -255,11 +255,11 @@ operationName definition =
             Nothing
 
 
-isQueryShorthand : AST.Definition -> Bool
-isQueryShorthand definition =
-    case definition of
-        AST.QueryShorthand _ ->
+isAnonymousOperation : AST.Definition -> Bool
+isAnonymousOperation definition =
+    case operationName definition of
+        Nothing ->
             True
 
-        _ ->
+        Just _ ->
             False
