@@ -95,23 +95,22 @@ testLongAnonymousOperation =
                         Nothing ->
                             Expect.pass
             )
-        , skip <|
-            test "should disallow mixed named and anonymous operations" <|
-                (\_ ->
-                    let
-                        document =
-                            AST.Document
-                                [ { baseOperationDefinitionInfo | name = Just "operation1" } |> AST.OperationDefinition
-                                , { baseOperationDefinitionInfo | name = Nothing } |> AST.OperationDefinition
-                                ]
-                    in
-                        case validateLoneAnonymousOperation document of
-                            Just error ->
-                                Expect.pass
+        , test "should disallow mixed named and anonymous operations" <|
+            (\_ ->
+                let
+                    document =
+                        AST.Document
+                            [ { baseOperationDefinitionInfo | name = Just "operation1" } |> AST.OperationDefinition
+                            , { baseOperationDefinitionInfo | name = Nothing } |> AST.OperationDefinition
+                            ]
+                in
+                    case validateLoneAnonymousOperation document of
+                        Just error ->
+                            Expect.pass
 
-                            Nothing ->
-                                Expect.fail "mixed anonymous/named operations were incorrectly passed during validation"
-                )
+                        Nothing ->
+                            Expect.fail "mixed anonymous/named operations were incorrectly passed during validation"
+            )
         , test "should disallow mixed named and shorthand operations" <|
             (\_ ->
                 let
