@@ -26,7 +26,9 @@ module GraphQL.Request.Builder
         , jsonVariableValues
         , responseDataDecoder
         , queryDocument
+        , namedQueryDocument
         , mutationDocument
+        , namedMutationDocument
         , fragment
         , onType
         , int
@@ -56,8 +58,8 @@ module GraphQL.Request.Builder
 
 {-| This module provides an interface for building up GraphQL requests in a way that gives you everything you need to safely and conveniently integrate them with your Elm program:
 
-* GraphQL variables are automatically converted from corresponding Elm types, so the compiler will let you know if there's a mismatch between the variables used in a document and the values you provide when you send the request.
-* Responses from the server are decoded using a `Json.Decode.Decoder` value that is built up as you build each part of the request document.
+  - GraphQL variables are automatically converted from corresponding Elm types, so the compiler will let you know if there's a mismatch between the variables used in a document and the values you provide when you send the request.
+  - Responses from the server are decoded using a `Json.Decode.Decoder` value that is built up as you build each part of the request document.
 
 In order to use arguments and variables in your requests, you will need to use functions from the [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value) and [`GraphQL.Request.Builder.Variable`](GraphQL-Request-Builder-Variable) modules. To send your requests over HTTP, see the [`GraphQL.Client.Http`](GraphQL-Client-Http) module.
 
@@ -66,37 +68,46 @@ In order to use arguments and variables in your requests, you will need to use f
 
 @docs ValueSpec, NonNull, Nullable, IntType, FloatType, StringType, BooleanType, IdType, EnumType, ListType, ObjectType
 
+
 ## Objects and selections
 
 @docs object, SelectionSpec, with, withLocalConstant, extract, assume, withDirectives, keyValuePairs, dict
+
 
 ### Fields
 
 @docs Field, field, aliasAs
 
+
 ### Fragments
 
 @docs Fragment, FragmentSpread, InlineFragment, TypeCondition, fragment, onType, fragmentSpread, inlineFragment
+
 
 ## Scalars
 
 @docs int, float, string, bool, id, enum, enumWithDefault, customScalar
 
+
 ## Nullability
 
 @docs nullable
+
 
 ## Lists
 
 @docs list
 
+
 # Customizing the decoding process
 
 @docs map
 
+
 # Documents
 
-@docs Document, Query, queryDocument, Mutation, mutationDocument
+@docs Document, Query, queryDocument, namedQueryDocument, Mutation, mutationDocument, namedMutationDocument
+
 
 # Requests
 
@@ -188,6 +199,7 @@ The `nullability` and `coreType` parameters are used by various functions in thi
 The `result` parameter specifies the type produced by the JSON decoder of the `ValueSpec`.
 
 The `vars` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `ValueSpec`.
+
 -}
 type ValueSpec nullability coreType result vars
     = ValueSpec (SourceType nullability coreType) (AST.SelectionSet -> Decoder result) (List (Variable vars)) (List AST.FragmentDefinitionInfo)
@@ -200,6 +212,7 @@ The `selectionType` can be either `Field`, `FragmentSpread`, or `InlineFragment`
 The `result` parameter specifies the type produced by the JSON decoder of the `SelectionSpec`.
 
 The `vars` parameter specifies the type of the Elm value required to supply any variables used anywhere within the `SelectionSpec`.
+
 -}
 type SelectionSpec selectionType result vars
     = SelectionSpec AST.Selection (AST.SelectionSet -> Decoder result) (List (Variable vars)) (List AST.FragmentDefinitionInfo)
@@ -419,6 +432,23 @@ queryDocument spec =
         )
 
 
+{-| Like `queryDocument`, but takes a name for the query as an extra first argument. The name is used as a label for the operation in the generated GraphQL document and can be useful for logging and debugging purposes.
+-}
+namedQueryDocument :
+    String
+    -> ValueSpec NonNull ObjectType result vars
+    -> Document Query result vars
+namedQueryDocument queryName spec =
+    document
+        (Operation
+            { operationType = queryOperationType
+            , name = Just queryName
+            , directives = []
+            , spec = spec
+            }
+        )
+
+
 queryOperationType : OperationType Query
 queryOperationType =
     QueryOperationType
@@ -430,7 +460,6 @@ queryOperationType =
         { username : String
         , password : String
         }
-
 
     loginMutation : Document Mutation String LoginVars
     loginMutation =
@@ -459,6 +488,23 @@ mutationDocument spec =
         (Operation
             { operationType = mutationOperationType
             , name = Nothing
+            , directives = []
+            , spec = spec
+            }
+        )
+
+
+{-| Like `mutationDocument`, but takes a name for the mutation as an extra first argument. The name is used as a label for the operation in the generated GraphQL document and can be useful for logging and debugging purposes.
+-}
+namedMutationDocument :
+    String
+    -> ValueSpec NonNull ObjectType result vars
+    -> Document Mutation result vars
+namedMutationDocument mutationName spec =
+    document
+        (Operation
+            { operationType = mutationOperationType
+            , name = Just mutationName
             , directives = []
             , spec = spec
             }
@@ -502,7 +548,7 @@ onType =
                 [ ( "login", Arg.string name ) ]
                 (extract (field "avatarUrl" [] string))
 
-    userAvatarUrls : List String -> Document Query (List (String, String)) vars
+    userAvatarUrls : List String -> Document Query (List ( String, String )) vars
     userAvatarUrls names =
         queryDocument <|
             keyValuePairs (List.map userAvatarUrlField names)
@@ -524,9 +570,10 @@ If you used this code to construct a query document with `userAvatarUrls ["alice
 
 Note that field aliases must still conform to the GraphQL spec:
 
-https://facebook.github.io/graphql/#sec-Names
+<https://facebook.github.io/graphql/#sec-Names>
 
 This means that the above example would not be suitable to use when the usernames are supplied from user input. If the user supplies a name that is not a valid GraphQL alias, then the GraphQL server would return an error response. In a case like that where you are generating a query from user input, you will need to find some other way of generating the field aliases.
+
 -}
 keyValuePairs :
     List (SelectionSpec Field value vars)
@@ -584,6 +631,7 @@ The same `ValueSpec` also provides a JSON decoder for decoding part of the respo
     Json.Decode.map2 User
         (Json.Decode.field "name" Json.Decode.string)
         (Json.Decode.field "isAdmin" Json.Decode.bool)
+
 -}
 object :
     (fieldValue -> a)
@@ -610,6 +658,7 @@ object ctr =
                 )
 
 This helps you avoid having extra levels of nesting that you don't need in your result types.
+
 -}
 extract :
     SelectionSpec selectionType result vars
@@ -714,6 +763,7 @@ withDirectives directives (SelectionSpec ast decoder vars fragments) =
 As long as the above `userSpec` is only ever used for selection sets on the schema's `"User"` type, then the fragment should always be returned by the server and the `assume` will always succeed.
 
 Depending on the semantics of the GraphQL schema you're working with, it may also be safe to use in some cases where fields are nullable in the schema but you know that in certain cases they are predictably non-null.
+
 -}
 assume :
     SelectionSpec selectionType (Maybe result) vars
@@ -749,17 +799,18 @@ assume (SelectionSpec ast decoder vars fragments) =
             |> with
                 (aliasAs "user1"
                     (field "user"
-                        [("id", Arg.id "1")]
+                        [ ( "id", Arg.id "1" ) ]
                         (extract (field "name" [] string))
                     )
                 )
             |> with
                 (aliasAs "user2"
                     (field "user"
-                        [("id", Arg.id "2")]
+                        [ ( "id", Arg.id "2" ) ]
                         (extract (field "name" [] string))
                     )
                 )
+
 -}
 aliasAs :
     String
@@ -822,6 +873,7 @@ Meanwhile, the selection set of `userSpec` itself would look like this wherever 
       name
       ...employeeInfoFragment
     }
+
 -}
 fragmentSpread :
     Fragment result vars
@@ -879,6 +931,7 @@ The selection set of the above `userSpec` would look like the following wherever
         title
       }
     }
+
 -}
 inlineFragment :
     Maybe TypeCondition
@@ -954,13 +1007,13 @@ id =
         = AdminAccess
         | MemberAccess
 
-
     userAccessLevel : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevel =
-       enum
-           [ ( "ADMIN", AdminAccess )
-           , ( "MEMBER", MemberAccess )
-           ]
+        enum
+            [ ( "ADMIN", AdminAccess )
+            , ( "MEMBER", MemberAccess )
+            ]
+
 -}
 enum : List ( String, result ) -> ValueSpec NonNull EnumType result vars
 enum =
@@ -977,13 +1030,13 @@ enum =
         | MemberAccess
         | UnknownAccess String
 
-
     userAccessLevel : ValueSpec NonNull EnumType AccessLevel vars
     userAccessLevel =
-       enumWithDefault UnknownAccess
-           [ ( "ADMIN", AdminAccess )
-           , ( "MEMBER", MemberAccess )
-           ]
+        enumWithDefault UnknownAccess
+            [ ( "ADMIN", AdminAccess )
+            , ( "MEMBER", MemberAccess )
+            ]
+
 -}
 enumWithDefault :
     (String -> result)
@@ -1019,10 +1072,12 @@ Once you have `TimeType` to use as a type marker, you can define a `ValueSpec` f
                     case ISO8601.fromString timeString of
                         Ok time ->
                             Decode.succeed time
+
                         Err errorMessage ->
                             Decode.fail errorMessage
                 )
             |> customScalar TimeType
+
 -}
 customScalar :
     customTypeMarker
@@ -1104,6 +1159,7 @@ list (ValueSpec itemType decoder vars fragments) =
 {-| Transforms a `NonNull` `ValueSpec` into one that allows `null` values, using a `Maybe` of the original `ValueSpec`'s `result` type to represent the nullability in the decoded Elm value.
 
 Note that the default `nullability` of a `ValueSpec` in this module is `NonNull`. This is the opposite of the situation in the GraphQL schema language, whose types must be annotated with the Non-Null (`!`) modifier in order to specify that their values will never be `null`.
+
 -}
 nullable :
     ValueSpec NonNull coreType result vars
@@ -1162,6 +1218,7 @@ Here's an example of using `map` with `nullable` to implement a function that ca
         -> ValueSpec Nullable coreType a vars
     nullableWithDefault default spec =
         map (Maybe.withDefault default) (nullable spec)
+
 -}
 map : (a -> b) -> ValueSpec nullability coreType a vars -> ValueSpec nullability coreType b vars
 map f (ValueSpec sourceType decoder vars fragments) =
@@ -1202,6 +1259,7 @@ map2 f (ValueSpec sourceTypeA decoderA varsA fragmentsA) (ValueSpec sourceTypeB 
         object User
             |> with (field "name" [] string)
             |> with (field "adminAccess" [] bool)
+
 -}
 with :
     SelectionSpec selectionType a vars
@@ -1225,6 +1283,7 @@ with selection objectSpec =
             |> withLocalConstant False
 
 Any `Item` record decoded by `itemSpec` would then have its `selected` field initialized to `False`. Adding a local constant in this way has no effect on the corresponding GraphQL selection set that is sent to the server — `itemSpec`'s selection set would simply be `{ name }`.
+
 -}
 withLocalConstant :
     a
