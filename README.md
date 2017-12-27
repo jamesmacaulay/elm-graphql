@@ -2,6 +2,8 @@
 
 ## jamesmacaulay/elm-graphql
 
+![Travis-CI build status](https://api.travis-ci.org/jamesmacaulay/elm-graphql.svg?branch=master)
+
 A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written entirely in Elm.
 
 The goal of this package is to provide a really good interface for working directly with GraphQL queries and schemas in Elm. Right now the main offering of the package is an interface for building up nested queries and mutations in a way that also builds up a decoder capable of decoding successful responses to the request. The package also provides a module for sending these requests to a GraphQL server over HTTP and decoding the responses accordingly.
