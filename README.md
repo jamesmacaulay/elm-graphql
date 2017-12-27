@@ -2,7 +2,7 @@
 
 ## jamesmacaulay/elm-graphql
 
-![Travis-CI build status](https://api.travis-ci.org/jamesmacaulay/elm-graphql.svg?branch=master)
+[![Travis-CI build status](https://api.travis-ci.org/jamesmacaulay/elm-graphql.svg)](https://travis-ci.org/jamesmacaulay/elm-graphql)
 
 A [GraphQL](http://graphql.org) library for [Elm](http://elm-lang.org), written entirely in Elm.
 
