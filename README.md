@@ -152,7 +152,27 @@ loginMutation =
 There are a lot of things that this package can't do right now, but might do in the future. What gets done depends on how the package ends up being used, and how much demand there is for each feature. Here are some likely possibilities:
 
 * support for [subscriptions](https://dev-blog.apollodata.com/graphql-subscriptions-in-apollo-client-9a2457f015fb)
-* generating code from a GraphQL schema to help build valid queries
+* generating code from a GraphQL schemas and queries
 * providing functions to validate a query against a target schema
 * leveraging Relay-compliant schemas to cache response data and transform queries so that the client only asks the server for what it doesn't have already
 * providing an interface to implement a GraphQL schema that you can run queries against
+
+### Getting and giving help
+
+If you're having trouble figuring out how to do something with this package, check out the [#graphql channel](https://elmlang.slack.com/messages/C0RSQNQ92) on the [Elm Slack](http://elmlang.herokuapp.com/) — there are usually people there who can help. And if you can be one of those people who help other people, then thank you!
+
+### Running the tests
+
+Install the `elm-test` npm package globally:
+
+```
+npm install -g elm-test
+```
+
+Make sure you have the latest version of `elm-test`, otherwise it may not be able to find the the test files in the right way. You can update an older version with `npm update -g elm-test`.
+
+Now run `elm-test` in the root folder of this project:
+
+```
+elm-test
+```
