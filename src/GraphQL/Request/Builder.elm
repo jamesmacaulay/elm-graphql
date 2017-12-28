@@ -421,28 +421,20 @@ document operation =
 queryDocument :
     ValueSpec NonNull ObjectType result vars
     -> Document Query result vars
-queryDocument spec =
-    document
-        (Operation
-            { operationType = queryOperationType
-            , name = Nothing
-            , directives = []
-            , spec = spec
-            }
-        )
+queryDocument spec = namedQueryDocument Nothing spec
 
 
 {-| Like `queryDocument`, but takes a name for the query as an extra first argument. The name is used as a label for the operation in the generated GraphQL document and can be useful for logging and debugging purposes.
 -}
 namedQueryDocument :
-    String
+    Maybe String
     -> ValueSpec NonNull ObjectType result vars
     -> Document Query result vars
-namedQueryDocument queryName spec =
+namedQueryDocument maybeQueryName spec =
     document
         (Operation
             { operationType = queryOperationType
-            , name = Just queryName
+            , name = maybeQueryName
             , directives = []
             , spec = spec
             }
@@ -483,28 +475,20 @@ queryOperationType =
 mutationDocument :
     ValueSpec NonNull ObjectType result vars
     -> Document Mutation result vars
-mutationDocument spec =
-    document
-        (Operation
-            { operationType = mutationOperationType
-            , name = Nothing
-            , directives = []
-            , spec = spec
-            }
-        )
+mutationDocument spec = namedMutationDocument Nothing spec
 
 
 {-| Like `mutationDocument`, but takes a name for the mutation as an extra first argument. The name is used as a label for the operation in the generated GraphQL document and can be useful for logging and debugging purposes.
 -}
 namedMutationDocument :
-    String
+    Maybe String
     -> ValueSpec NonNull ObjectType result vars
     -> Document Mutation result vars
-namedMutationDocument mutationName spec =
+namedMutationDocument maybeMutationName spec =
     document
         (Operation
             { operationType = mutationOperationType
-            , name = Just mutationName
+            , name = maybeMutationName
             , directives = []
             , spec = spec
             }

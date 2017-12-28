@@ -586,7 +586,7 @@ tests =
                 |> Expect.equal (Ok (Dict.fromList exampleKeyValuePairsDecoded))
     , test "named query with arguments" <|
         \() ->
-            (namedQueryDocument "MyQuery" (extract (field "foo" [ ( "bar", Var.required "bar" identity Var.bool |> Arg.variable ) ] string)))
+            (namedQueryDocument (Just "MyQuery") (extract (field "foo" [ ( "bar", Var.required "bar" identity Var.bool |> Arg.variable ) ] string)))
                 |> request True
                 |> requestBody
                 |> Expect.equal """query MyQuery ($bar: Boolean!) {
@@ -594,7 +594,7 @@ tests =
 }"""
     , test "named mutation with no arguments" <|
         \() ->
-            (namedMutationDocument "MyMutation" (extract (field "foo" [] string)))
+            (namedMutationDocument (Just "MyMutation") (extract (field "foo" [] string)))
                 |> request True
                 |> requestBody
                 |> Expect.equal """mutation MyMutation {
