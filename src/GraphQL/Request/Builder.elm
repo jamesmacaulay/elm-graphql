@@ -1124,7 +1124,7 @@ decoderFromEnumLabel :
 decoderFromEnumLabel fallbackDecoder labelledValues =
     let
         valueFromLabel =
-            flip Dict.get (Dict.fromList labelledValues)
+            (\key -> Dict.get key (Dict.fromList labelledValues))
 
         decoder enumString =
             case valueFromLabel enumString of
