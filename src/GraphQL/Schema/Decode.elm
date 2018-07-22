@@ -158,7 +158,7 @@ namedTypeDecoder =
                         inputObjectTypeDecoder
 
                     _ ->
-                        Decode.fail ("unexpected kind for named type " ++ toString kind)
+                        Decode.fail ("unexpected kind for named type " ++ Debug.toString kind)
             )
 
 
@@ -197,7 +197,7 @@ decoderFromDirectiveLocation loc =
             Decode.succeed Schema.InlineFragmentLocation
 
         _ ->
-            Decode.fail ("unexpected DirectiveLocation " ++ toString loc)
+            Decode.fail ("unexpected DirectiveLocation " ++ Debug.toString loc)
 
 
 directiveLocationDecoder : Decoder Schema.DirectiveLocation

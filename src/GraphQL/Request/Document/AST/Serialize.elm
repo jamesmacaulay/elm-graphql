@@ -118,13 +118,13 @@ serializeValue value =
             "$" ++ name
 
         AST.IntValue int ->
-            toString int
+            String.fromInt int
 
         AST.FloatValue float ->
-            toString float
+            String.fromFloat float
 
         AST.StringValue string ->
-            toString string
+            string
 
         AST.BooleanValue True ->
             "true"
