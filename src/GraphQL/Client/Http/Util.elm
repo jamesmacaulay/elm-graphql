@@ -4,7 +4,6 @@ import GraphQL.Response as Response
 import Http
 import Json.Decode
 import Json.Encode
-import Time exposing (Time)
 import Url
 
 
@@ -54,7 +53,7 @@ type alias RequestOptions =
     { method : String
     , headers : List Http.Header
     , url : String
-    , timeout : Maybe Time
+    , timeout : Maybe Float
     , withCredentials : Bool
     }
 
@@ -82,7 +81,7 @@ type alias RequestConfig a =
     , url : String
     , body : Http.Body
     , expect : Http.Expect a
-    , timeout : Maybe Time
+    , timeout : Maybe Float
     , withCredentials : Bool
     }
 
