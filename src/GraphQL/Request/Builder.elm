@@ -1168,7 +1168,7 @@ nullable (ValueSpec sourceType decoder vars fragments) =
     case sourceType of
         SpecifiedType typeInfo ->
             ValueSpec
-                (SpecifiedType { typeInfo | nullability = nullableFlag })
+                (SpecifiedType (SpecifiedTypeInfo nullableFlag typeInfo.coreType typeInfo.join typeInfo.selectionSet))
                 (Decode.nullable << decoder)
                 vars
                 fragments
