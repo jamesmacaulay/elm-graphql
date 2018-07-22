@@ -139,9 +139,9 @@ type alias TypeCondition =
 type Request operationType result
     = Request
         { documentAST : AST.Document
-        , documentString : String
+        , documentStringValue : String
         , variableValues : List ( String, AST.ConstantValue )
-        , responseDataDecoder : Decoder result
+        , responseDataDecoderFunction : Decoder result
         }
 
 
@@ -344,23 +344,23 @@ request :
     vars
     -> Document operationType result vars
     -> Request operationType result
-request vars ((Document { operation, ast, serialized }) as document) =
+request vars ((Document { operation, ast, serialized }) as doc) =
     Request
         { documentAST = ast
-        , documentString = serialized
+        , documentStringValue = serialized
         , variableValues =
-            (documentVariables document
+            (documentVariables doc
                 |> Variable.extractValuesFrom vars
             )
-        , responseDataDecoder = documentResponseDecoder document
+        , responseDataDecoderFunction = documentResponseDecoder doc
         }
 
 
 {-| Get the serialized document body of a `Request`.
 -}
 requestBody : Request operationType result -> String
-requestBody (Request { documentString }) =
-    documentString
+requestBody (Request { documentStringValue }) =
+    documentStringValue
 
 
 variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Encode.Value
@@ -384,8 +384,8 @@ jsonVariableValues (Request { variableValues }) =
 {-| Get a JSON decoder that can be used to decode the data contained in a successful response to a `Request`. If you're working with a conventional GraphQL response over HTTP, the returned `Decoder` works on the data found under the `"data"` key of the response.
 -}
 responseDataDecoder : Request operationType result -> Decoder result
-responseDataDecoder (Request { responseDataDecoder }) =
-    responseDataDecoder
+responseDataDecoder (Request { responseDataDecoderFunction }) =
+    responseDataDecoderFunction
 
 
 fragmentDefinitionsFromOperation : Operation operationType result vars -> List AST.FragmentDefinitionInfo
@@ -878,7 +878,7 @@ Meanwhile, the selection set of `userSpec` itself would look like this wherever 
 fragmentSpread :
     Fragment result vars
     -> SelectionSpec FragmentSpread (Maybe result) vars
-fragmentSpread ((Fragment { name, spec }) as fragment) =
+fragmentSpread ((Fragment { name, spec }) as fragmentRecord) =
     let
         astFragmentSpreadInfo =
             { name = name
@@ -891,8 +891,8 @@ fragmentSpread ((Fragment { name, spec }) as fragment) =
         SelectionSpec
             (AST.FragmentSpread astFragmentSpreadInfo)
             (Decode.maybe << decoder)
-            (fragmentVariables fragment)
-            (mergeFragments [ fragmentAST fragment ] nestedFragments)
+            (fragmentVariables fragmentRecord)
+            (mergeFragments [ fragmentAST fragmentRecord ] nestedFragments)
 
 
 {-| Constructs a `SelectionSpec` for an object with a single inline fragment. Takes an optional `TypeCondition`, a list of optional directives, and a `ValueSpec` representing the selection set of the inline fragment. The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
@@ -1474,5 +1474,5 @@ mergeFragments fragmentsA fragmentsB =
     fragmentsA
         ++ (fragmentsB
                 |> List.filter
-                    (\fragment -> not (List.any ((==) fragment) fragmentsA))
+                    (\fragmentItem -> not (List.any ((==) fragmentItem) fragmentsA))
            )

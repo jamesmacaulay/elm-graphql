@@ -66,8 +66,8 @@ type Field source
 {-| Construct a `Variable` that has no default value, and therefore must extract its value from a `source`. The first argument is the name of the variable that appears in the GraphQL request document, and must be unique for that document. It should _not_ include any leading dollar sign (`$`). The second argument is a function that extracts a value of the required type from a `source`. The third argument is a `VariableSpec` that describes the type of the variable.
 -}
 required : String -> (source -> a) -> VariableSpec nullability a -> Variable source
-required name extract (VariableSpec _ typeRef convert) =
-    RequiredVariable name typeRef (extract >> convert)
+required variableName extract (VariableSpec _ typeRef convert) =
+    RequiredVariable variableName typeRef (extract >> convert)
 
 
 {-| Construct a `Variable` that has a default value, and therefore its `source` may or may not provide a value for it. The first three arguments are the same as for the `required` function, except that the function to extract a value from `source` must return a `Maybe` of the type expected by the `VariableSpec`. The last argument is a default value for the variable.
@@ -75,8 +75,8 @@ required name extract (VariableSpec _ typeRef convert) =
 Note that the `VariableSpec` may be either `Nullable` or `NonNull`, but in both cases the variable definition is serialized _without_ a Non-Null modifier in the GraphQL request document, because optional variables may not be Non-Null in GraphQL. If you pass a `NonNull` `VariableSpec` into this function, it just means that you won't be able to represent an explicit `null` for the variable's value. If instead you pass a `Nullable` `VariableSpec` into this function, you will be able to represent an explicit `null` value for the variable, but you'll also have to deal with double-wrapped `Maybe` values – a missing value is then represented as a `Nothing` returned from your extraction function, and a `null` value is represented as `Just Nothing`. For this reason, it is recommended that you stick to `NonNull` `VariableSpec` values here unless you really need to be able to pass `null` explictly to the GraphQL server.
 -}
 optional : String -> (source -> Maybe a) -> VariableSpec nullability a -> a -> Variable source
-optional name extractMaybe (VariableSpec nullability typeRef convert) defaultValue =
-    OptionalVariable name (TypeRef.nullable typeRef) (extractMaybe >> Maybe.map convert) (convert defaultValue)
+optional variableName extractMaybe (VariableSpec nullability typeRef convert) defaultValue =
+    OptionalVariable variableName (TypeRef.nullable typeRef) (extractMaybe >> Maybe.map convert) (convert defaultValue)
 
 
 {-| A `VariableSpec` for the GraphQL `Int` type that extracts its value from an Elm `Int`.
@@ -190,8 +190,8 @@ field :
     -> (objVariableSource -> fieldVariableSource)
     -> VariableSpec nullability fieldVariableSource
     -> Field objVariableSource
-field name extract (VariableSpec _ typeRef convert) =
-    Field name typeRef (extract >> convert >> Just)
+field fieldName extract (VariableSpec _ typeRef convert) =
+    Field fieldName typeRef (extract >> convert >> Just)
 
 
 {-| Like `field`, except the extractor function must return a `Maybe` value. When the extracted value is `Nothing`, the field is not included in the object sent to the server at all. This works in a very similar way to the `optional` function, except that `optional` is used for entire optional variables while `optionalField` is used for optional fields of variable input objects.
@@ -222,14 +222,14 @@ optionalField :
     -> (objVariableSource -> Maybe fieldVariableSource)
     -> VariableSpec nullability fieldVariableSource
     -> Field objVariableSource
-optionalField name extract (VariableSpec _ typeRef convert) =
-    Field name typeRef (extract >> Maybe.map convert)
+optionalField fieldName extract (VariableSpec _ typeRef convert) =
+    Field fieldName typeRef (extract >> Maybe.map convert)
 
 
 fieldTuple : source -> Field source -> Maybe ( String, AST.ConstantValue )
-fieldTuple source (Field name _ convert) =
+fieldTuple source (Field fieldName _ convert) =
     convert source
-        |> Maybe.map (\value -> ( name, value ))
+        |> Maybe.map (\value -> ( fieldName, value ))
 
 
 valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue )
@@ -252,11 +252,11 @@ valueFromSource source var =
 name : Variable source -> String
 name var =
     case var of
-        RequiredVariable name _ _ ->
-            name
+        RequiredVariable variableName _ _ ->
+            variableName
 
-        OptionalVariable name _ _ _ ->
-            name
+        OptionalVariable variableName _ _ _ ->
+            variableName
 
 
 {-| Returns the AST (abstract syntax tree) representation of a `Variable`.
@@ -264,16 +264,16 @@ name var =
 toDefinitionAST : Variable source -> AST.VariableDefinition
 toDefinitionAST var =
     case var of
-        RequiredVariable name typeRef _ ->
+        RequiredVariable variableName typeRef _ ->
             AST.VariableDefinition
-                { name = name
+                { name = variableName
                 , variableType = typeRef
                 , defaultValue = Nothing
                 }
 
-        OptionalVariable name typeRef _ defaultValue ->
+        OptionalVariable variableName typeRef _ defaultValue ->
             AST.VariableDefinition
-                { name = name
+                { name = variableName
                 , variableType = typeRef
                 , defaultValue = Just defaultValue
                 }
