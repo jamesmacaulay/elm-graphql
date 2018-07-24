@@ -139,9 +139,9 @@ type alias TypeCondition =
 type Request operationType result
     = Request
         { documentAST : AST.Document
-        , documentStringValue : String
+        , documentString : String
         , variableValues : List ( String, AST.ConstantValue )
-        , responseDataDecoderFunction : Decoder result
+        , responseDataDecoder : Decoder result
         }
 
 
@@ -347,20 +347,22 @@ request :
 request vars ((Document { operation, ast, serialized }) as doc) =
     Request
         { documentAST = ast
-        , documentStringValue = serialized
+        , documentString = serialized
         , variableValues =
             (documentVariables doc
                 |> Variable.extractValuesFrom vars
             )
-        , responseDataDecoderFunction = documentResponseDecoder doc
+        , responseDataDecoder = documentResponseDecoder doc
         }
 
 
 {-| Get the serialized document body of a `Request`.
 -}
 requestBody : Request operationType result -> String
-requestBody (Request { documentStringValue }) =
-    documentStringValue
+requestBody requestUnion =
+    case requestUnion of
+        Request requestRecord ->
+            requestRecord.documentString
 
 
 variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Encode.Value
@@ -384,8 +386,10 @@ jsonVariableValues (Request { variableValues }) =
 {-| Get a JSON decoder that can be used to decode the data contained in a successful response to a `Request`. If you're working with a conventional GraphQL response over HTTP, the returned `Decoder` works on the data found under the `"data"` key of the response.
 -}
 responseDataDecoder : Request operationType result -> Decoder result
-responseDataDecoder (Request { responseDataDecoderFunction }) =
-    responseDataDecoderFunction
+responseDataDecoder requestUnion =
+    case requestUnion of
+        Request requestRecord ->
+            requestRecord.responseDataDecoder
 
 
 fragmentDefinitionsFromOperation : Operation operationType result vars -> List AST.FragmentDefinitionInfo
