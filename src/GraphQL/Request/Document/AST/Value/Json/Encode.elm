@@ -30,7 +30,7 @@ encode value =
             Json.string string
 
         AST.ListValue values ->
-            Json.list (List.map encode values)
+            Json.list encode values
 
         AST.ObjectValue kvPairs ->
             Json.object (List.map (Tuple.mapSecond encode) kvPairs)

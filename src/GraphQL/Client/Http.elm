@@ -21,7 +21,6 @@ import GraphQL.Client.Http.Util as Util
 import GraphQL.Request.Builder as Builder
 import Http
 import Task exposing (Task)
-import Time exposing (Time)
 
 
 {-| An error returned by the GraphQL server that indicates there was something wrong with the request.
@@ -93,7 +92,7 @@ type alias RequestOptions =
     { method : String
     , headers : List Http.Header
     , url : String
-    , timeout : Maybe Time
+    , timeout : Maybe Float
     , withCredentials : Bool
     }
 

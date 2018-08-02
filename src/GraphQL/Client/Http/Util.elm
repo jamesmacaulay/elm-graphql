@@ -4,7 +4,7 @@ import GraphQL.Response as Response
 import Http
 import Json.Decode
 import Json.Encode
-import Time exposing (Time)
+import Url
 
 
 postBodyJson : String -> Maybe Json.Encode.Value -> Json.Encode.Value
@@ -36,13 +36,13 @@ parameterizedUrl url documentString variableValues =
                 "?"
 
         queryParam =
-            firstParamPrefix ++ "query=" ++ Http.encodeUri documentString
+            firstParamPrefix ++ "query=" ++ Url.percentEncode documentString
 
         variablesParam =
             variableValues
                 |> Maybe.map
                     (\obj ->
-                        "&variables=" ++ Http.encodeUri (Json.Encode.encode 0 obj)
+                        "&variables=" ++ Url.percentEncode (Json.Encode.encode 0 obj)
                     )
                 |> Maybe.withDefault ""
     in
@@ -53,7 +53,7 @@ type alias RequestOptions =
     { method : String
     , headers : List Http.Header
     , url : String
-    , timeout : Maybe Time
+    , timeout : Maybe Float
     , withCredentials : Bool
     }
 
@@ -81,7 +81,7 @@ type alias RequestConfig a =
     , url : String
     , body : Http.Body
     , expect : Http.Expect a
-    , timeout : Maybe Time
+    , timeout : Maybe Float
     , withCredentials : Bool
     }
 
