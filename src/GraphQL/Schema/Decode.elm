@@ -164,7 +164,7 @@ namedTypeDecoder =
 
 namedTypeTupleDecoder : Decoder ( String, Schema.NamedType )
 namedTypeTupleDecoder =
-    construct (,)
+    construct (\a b -> (a, b))
         |> with (field "name" string)
         |> with namedTypeDecoder
 
