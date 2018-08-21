@@ -359,10 +359,8 @@ request vars ((Document { operation, ast, serialized }) as doc) =
 {-| Get the serialized document body of a `Request`.
 -}
 requestBody : Request operationType result -> String
-requestBody requestUnion =
-    case requestUnion of
-        Request requestRecord ->
-            requestRecord.documentString
+requestBody (Request requestRecord) =
+    requestRecord.documentString
 
 
 variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Encode.Value
@@ -386,10 +384,8 @@ jsonVariableValues (Request { variableValues }) =
 {-| Get a JSON decoder that can be used to decode the data contained in a successful response to a `Request`. If you're working with a conventional GraphQL response over HTTP, the returned `Decoder` works on the data found under the `"data"` key of the response.
 -}
 responseDataDecoder : Request operationType result -> Decoder result
-responseDataDecoder requestUnion =
-    case requestUnion of
-        Request requestRecord ->
-            requestRecord.responseDataDecoder
+responseDataDecoder (Request requestRecord) =
+    requestRecord.responseDataDecoder
 
 
 fragmentDefinitionsFromOperation : Operation operationType result vars -> List AST.FragmentDefinitionInfo
