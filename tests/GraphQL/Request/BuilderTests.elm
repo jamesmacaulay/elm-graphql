@@ -8,8 +8,6 @@ import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Response as Response
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Date exposing (Date)
-import Time exposing (Time)
 import Dict exposing (Dict)
 
 
@@ -24,7 +22,7 @@ testDecoder expr request testJSON expectedResult =
         \() ->
             request
                 |> responseDataDecoder
-                |> flip Decode.decodeString testJSON
+                |> (\decoder -> Decode.decodeString decoder testJSON)
                 |> Expect.equal (Ok expectedResult)
 
 
@@ -41,7 +39,7 @@ type alias ExampleQueryUser =
     { id : ExampleQueryUserId
     , name : String
     , role : ExampleRole
-    , createdAt : Time
+    , createdAt : FakeTime
     , projects : Maybe (List ExampleQueryProject)
     }
 
@@ -78,23 +76,27 @@ type alias ExampleVariables =
     }
 
 
-type TimeType
-    = TimeType
+type FakeTimeType
+    = FakeTimeType
 
 
-time : ValueSpec NonNull TimeType Time vars
-time =
+type FakeTime
+    = FakeTime Int
+
+
+fakeTime : ValueSpec NonNull FakeTimeType FakeTime vars
+fakeTime =
     Decode.string
         |> Decode.andThen
             (\timeString ->
-                case Result.map Date.toTime (Date.fromString timeString) of
-                    Ok time ->
-                        Decode.succeed time
+                case timeString of
+                    "2017-04-02T19:57:00Z" ->
+                        Decode.succeed (FakeTime 1491163020000)
 
-                    Err errorMessage ->
-                        Decode.fail errorMessage
+                    _ ->
+                        Decode.fail "I only know how to parse one string"
             )
-        |> customScalar TimeType
+        |> customScalar FakeTimeType
 
 
 userIdVar : Var.Variable { v | userId : String }
@@ -215,7 +217,7 @@ exampleQueryRequest =
                             string
                         )
                     |> with (field "role" [] roleEnum)
-                    |> with (aliasAs "creationTime" (field "createdAt" [] time))
+                    |> with (aliasAs "creationTime" (field "createdAt" [] fakeTime))
                     |> with (assume (fragmentSpread exampleQueryUserProjectsFragment))
                 )
             )
@@ -464,7 +466,7 @@ tests =
                 |> jsonVariableValues
                 |> Maybe.map
                     (Decode.decodeValue
-                        (Decode.map3 (,,)
+                        (Decode.map3 (\a b c -> ( a, b, c ))
                             (Decode.field "userId" Decode.string)
                             (Decode.field "userNameKind" Decode.string)
                             (Decode.field "includeProjects" Decode.bool)
@@ -483,7 +485,7 @@ tests =
                             { id = ExampleQueryUserId "123"
                             , name = "alice"
                             , role = ExampleAdminRole
-                            , createdAt = 1491163020000
+                            , createdAt = FakeTime 1491163020000
                             , projects =
                                 Just
                                     [ { id = ExampleQueryProjectId "456"
