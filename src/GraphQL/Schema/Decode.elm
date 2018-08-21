@@ -12,6 +12,7 @@ module GraphQL.Schema.Decode
         )
 
 import Json.Decode as Decode exposing (Decoder, field, string, bool, null, list)
+import Json.Encode as Encode
 import GraphQL.Schema as Schema exposing (Schema)
 import Dict exposing (Dict)
 
@@ -158,13 +159,13 @@ namedTypeDecoder =
                         inputObjectTypeDecoder
 
                     _ ->
-                        Decode.fail ("unexpected kind for named type " ++ Debug.toString kind)
+                        Decode.fail ("unexpected kind for named type " ++ Encode.encode 0 (Encode.string kind))
             )
 
 
 namedTypeTupleDecoder : Decoder ( String, Schema.NamedType )
 namedTypeTupleDecoder =
-    construct (\a b -> (a, b))
+    construct (\a b -> ( a, b ))
         |> with (field "name" string)
         |> with namedTypeDecoder
 
@@ -197,7 +198,7 @@ decoderFromDirectiveLocation loc =
             Decode.succeed Schema.InlineFragmentLocation
 
         _ ->
-            Decode.fail ("unexpected DirectiveLocation " ++ Debug.toString loc)
+            Decode.fail ("unexpected DirectiveLocation " ++ Encode.encode 0 (Encode.string loc))
 
 
 directiveLocationDecoder : Decoder Schema.DirectiveLocation

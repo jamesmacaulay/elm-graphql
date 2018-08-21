@@ -602,6 +602,15 @@ tests =
                 |> Expect.equal """mutation MyMutation {
   foo
 }"""
+    , test "unexpected enum value" <|
+        \() ->
+            extract (field "role" [] roleEnum)
+                |> queryDocument
+                |> request {}
+                |> responseDataDecoder
+                |> (\decoder -> Decode.decodeString decoder "{\"role\": \"JESTER\"}")
+                |> Result.mapError Decode.errorToString
+                |> Expect.equal (Err "Problem with the value at json.role:\n\n    \"JESTER\"\n\nUnexpected enum value \"JESTER\"")
     ]
 
 

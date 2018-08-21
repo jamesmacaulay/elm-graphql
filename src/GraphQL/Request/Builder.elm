@@ -1019,7 +1019,7 @@ enum : List ( String, result ) -> ValueSpec NonNull EnumType result vars
 enum =
     enumWithFallback
         (\label ->
-            Decode.fail ("Unexpected enum value " ++ Debug.toString label)
+            Decode.fail ("Unexpected enum value " ++ Encode.encode 0 (Encode.string label))
         )
 
 
