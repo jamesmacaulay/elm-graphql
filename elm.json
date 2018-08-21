@@ -1,0 +1,23 @@
+{
+    "type": "package",
+    "name": "jamesmacaulay/elm-graphql",
+    "summary": "A GraphQL request builder and HTTP client",
+    "license": "BSD-3-Clause",
+    "version": "2.0.0",
+    "exposed-modules": [
+        "GraphQL.Client.Http",
+        "GraphQL.Request.Builder",
+        "GraphQL.Request.Builder.Arg",
+        "GraphQL.Request.Builder.Variable"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "elm/http": "1.0.0 <= v < 2.0.0",
+        "elm/json": "1.0.0 <= v < 2.0.0",
+        "elm/url": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {
+        "elm-explorations/test": "1.0.0 <= v < 2.0.0"
+    }
+}

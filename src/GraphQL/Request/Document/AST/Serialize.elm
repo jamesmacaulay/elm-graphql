@@ -5,6 +5,7 @@ module GraphQL.Request.Document.AST.Serialize
 
 import GraphQL.Request.Document.AST as AST
 import String
+import Json.Encode as Encode
 
 
 serializeDocument : AST.Document -> String
@@ -118,13 +119,13 @@ serializeValue value =
             "$" ++ name
 
         AST.IntValue int ->
-            toString int
+            String.fromInt int
 
         AST.FloatValue float ->
-            toString float
+            String.fromFloat float
 
         AST.StringValue string ->
-            toString string
+            Encode.encode 0 (Encode.string string)
 
         AST.BooleanValue True ->
             "true"

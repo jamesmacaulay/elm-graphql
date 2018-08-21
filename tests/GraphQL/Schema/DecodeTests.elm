@@ -397,25 +397,25 @@ tests =
                     Ok schema ->
                         let
                             summary =
-                                ( schema.queryType
-                                , schema.mutationType
-                                , schema.subscriptionType
-                                , Dict.keys schema.types
-                                , List.map .name schema.directives
-                                )
+                                { queryType = schema.queryType
+                                , mutationType = schema.mutationType
+                                , subscriptionType = schema.subscriptionType
+                                , typeNames = Dict.keys schema.types
+                                , directiveNames = List.map .name schema.directives
+                                }
 
                             expected =
-                                ( "Thing"
-                                , Nothing
-                                , Nothing
-                                , [ "Boolean", "HasMass", "OnlyThing", "Thing", "ThingInput", "UnitSystem" ]
-                                , [ "include" ]
-                                )
+                                { queryType = "Thing"
+                                , mutationType = Nothing
+                                , subscriptionType = Nothing
+                                , typeNames = [ "Boolean", "HasMass", "OnlyThing", "Thing", "ThingInput", "UnitSystem" ]
+                                , directiveNames = [ "include" ]
+                                }
                         in
                             Expect.equal expected summary
 
-                    Err msg ->
-                        Expect.fail msg
+                    Err err ->
+                        Expect.fail (Decode.errorToString err)
     ]
 
 
