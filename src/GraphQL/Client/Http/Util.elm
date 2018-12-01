@@ -54,7 +54,6 @@ type alias RequestOptions =
     , headers : List Http.Header
     , url : String
     , timeout : Maybe Float
-    , withCredentials : Bool
     }
 
 
@@ -82,7 +81,7 @@ type alias RequestConfig a =
     , body : Http.Body
     , expect : Http.Expect a
     , timeout : Maybe Float
-    , withCredentials : Bool
+    , tracker: Maybe String
     }
 
 
@@ -92,7 +91,6 @@ defaultRequestOptions url =
     , headers = []
     , url = url
     , timeout = Nothing
-    , withCredentials = False
     }
 
 
@@ -116,13 +114,12 @@ requestConfig requestOptions documentString expect variableValues =
         , body = body
         , expect = expect
         , timeout = requestOptions.timeout
-        , withCredentials = requestOptions.withCredentials
+        , tracker = Nothing
         }
 
 
-defaultExpect : Json.Decode.Decoder result -> Http.Expect result
-defaultExpect =
-    Http.expectJson << Json.Decode.field "data"
+dataDecoder =
+    Json.Decode.field "data"
 
 
 errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
@@ -140,10 +137,7 @@ convertHttpError wrapHttpError wrapGraphQLError httpError =
                 |> Result.withDefault (wrapHttpError httpError)
     in
         case httpError of
-            Http.BadStatus { body } ->
-                handleErrorWithResponseBody body
-
-            Http.BadPayload _ { body } ->
+            Http.BadBody body ->
                 handleErrorWithResponseBody body
 
             _ ->
