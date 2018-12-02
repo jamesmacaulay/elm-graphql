@@ -1,4 +1,4 @@
-module GraphQL.Client.Http.Util exposing (..)
+module GraphQL.Client.Http.Util exposing (DocumentLocation, Error(..), RequestConfig, RequestError, RequestOptions, defaultRequestOptions, parameterizedUrl, postBody, postBodyJson, requestConfig)
 
 import GraphQL.Response as Response
 import Http
@@ -18,7 +18,7 @@ postBodyJson documentString variableValues =
                 |> Maybe.map (\obj -> [ ( "variables", obj ) ])
                 |> Maybe.withDefault []
     in
-        Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
+    Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
 
 
 postBody : String -> Maybe Json.Encode.Value -> Http.Body
@@ -32,6 +32,7 @@ parameterizedUrl url documentString variableValues =
         firstParamPrefix =
             if String.contains "?" url then
                 "&"
+
             else
                 "?"
 
@@ -46,7 +47,7 @@ parameterizedUrl url documentString variableValues =
                     )
                 |> Maybe.withDefault ""
     in
-        url ++ queryParam ++ variablesParam
+    url ++ queryParam ++ variablesParam
 
 
 type alias RequestOptions =
@@ -54,7 +55,6 @@ type alias RequestOptions =
     , headers : List Http.Header
     , url : String
     , timeout : Maybe Float
-    , withCredentials : Bool
     }
 
 
@@ -82,7 +82,7 @@ type alias RequestConfig a =
     , body : Http.Body
     , expect : Http.Expect a
     , timeout : Maybe Float
-    , withCredentials : Bool
+    , tracker : Maybe String
     }
 
 
@@ -92,7 +92,6 @@ defaultRequestOptions url =
     , headers = []
     , url = url
     , timeout = Nothing
-    , withCredentials = False
     }
 
 
@@ -107,44 +106,15 @@ requestConfig requestOptions documentString expect variableValues =
         ( url, body ) =
             if requestOptions.method == "GET" then
                 ( parameterizedUrl requestOptions.url documentString variableValues, Http.emptyBody )
+
             else
                 ( requestOptions.url, postBody documentString variableValues )
     in
-        { method = requestOptions.method
-        , headers = requestOptions.headers
-        , url = url
-        , body = body
-        , expect = expect
-        , timeout = requestOptions.timeout
-        , withCredentials = requestOptions.withCredentials
-        }
-
-
-defaultExpect : Json.Decode.Decoder result -> Http.Expect result
-defaultExpect =
-    Http.expectJson << Json.Decode.field "data"
-
-
-errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
-errorsResponseDecoder =
-    Json.Decode.field "errors" Response.errorsDecoder
-
-
-convertHttpError : (Http.Error -> err) -> (List RequestError -> err) -> Http.Error -> err
-convertHttpError wrapHttpError wrapGraphQLError httpError =
-    let
-        handleErrorWithResponseBody responseBody =
-            responseBody
-                |> Json.Decode.decodeString errorsResponseDecoder
-                |> Result.map wrapGraphQLError
-                |> Result.withDefault (wrapHttpError httpError)
-    in
-        case httpError of
-            Http.BadStatus { body } ->
-                handleErrorWithResponseBody body
-
-            Http.BadPayload _ { body } ->
-                handleErrorWithResponseBody body
-
-            _ ->
-                wrapHttpError httpError
+    { method = requestOptions.method
+    , headers = requestOptions.headers
+    , url = url
+    , body = body
+    , expect = expect
+    , timeout = requestOptions.timeout
+    , tracker = Nothing
+    }
