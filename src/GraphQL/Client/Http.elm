@@ -8,7 +8,9 @@ module GraphQL.Client.Http exposing (Error(..), RequestError, DocumentLocation, 
 
 import GraphQL.Client.Http.Util as Util
 import GraphQL.Request.Builder as Builder
+import GraphQL.Response as Response
 import Http
+import Json.Decode
 import Task exposing (Task)
 
 
@@ -75,9 +77,7 @@ send :
 send options request toMsg =
     let
         expect =
-            Http.expectJson
-                (Result.mapError (Util.convertHttpError HttpError GraphQLError) >> toMsg)
-                (Util.dataDecoder (Builder.responseDataDecoder request))
+            expectGraphQL toMsg request
 
         documentString =
             Builder.requestBody request
@@ -89,5 +89,39 @@ send options request toMsg =
         |> Http.request
 
 
+expectGraphQL :
+    (Result Error result -> msg)
+    -> Builder.Request operationType result
+    -> Http.Expect msg
+expectGraphQL toMsg request =
+    let
+        decoder =
+            Json.Decode.map2 (\errors data -> ( errors, data ))
+                (Json.Decode.maybe (Json.Decode.field "errors" Response.errorsDecoder))
+                (Json.Decode.field "data" (Builder.responseDataDecoder request))
+    in
+    Http.expectStringResponse toMsg <|
+        \response ->
+            case response of
+                Http.BadUrl_ url ->
+                    Err (HttpError (Http.BadUrl url))
 
--- |> Task.mapError (
+                Http.Timeout_ ->
+                    Err (HttpError Http.Timeout)
+
+                Http.NetworkError_ ->
+                    Err (HttpError Http.NetworkError)
+
+                Http.BadStatus_ metadata body ->
+                    Err (HttpError (Http.BadStatus metadata.statusCode))
+
+                Http.GoodStatus_ metadata body ->
+                    case Json.Decode.decodeString decoder body of
+                        Ok ( Just errors, _ ) ->
+                            Err (GraphQLError errors)
+
+                        Ok ( Nothing, data ) ->
+                            Ok data
+
+                        Err err ->
+                            Err (HttpError (Http.BadBody (Json.Decode.errorToString err)))
