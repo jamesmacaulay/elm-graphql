@@ -6,7 +6,7 @@ import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
 import Html exposing (Html, div, text)
 import Task exposing (Task)
-
+import Browser
 
 {-| Responses to `starWarsRequest` are decoded into this type.
 -}
@@ -129,32 +129,28 @@ sendStarWarsQuery =
         |> Task.attempt ReceiveQueryResponse
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.document
         { init = init
         , view = view
         , update = update
-        , subscriptions = subscriptions
+        , subscriptions = \_ -> Sub.none
         }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : () -> ( Model, Cmd Msg )
+init () =
     ( Nothing, sendStarWarsQuery )
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div []
-        [ model |> toString |> text ]
+    { title = "Example"
+    , body = [ model |> Debug.toString |> text ]
+    }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update (ReceiveQueryResponse response) model =
     ( Just response, Cmd.none )
-
-
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.none
