@@ -1,60 +1,15 @@
-module GraphQL.Request.Builder
-    exposing
-        ( Request
-        , Document
-        , Query
-        , Mutation
-        , Fragment
-        , ValueSpec
-        , Nullable
-        , NonNull
-        , IntType
-        , FloatType
-        , StringType
-        , BooleanType
-        , IdType
-        , EnumType
-        , ListType
-        , ObjectType
-        , SelectionSpec
-        , Field
-        , FragmentSpread
-        , InlineFragment
-        , TypeCondition
-        , request
-        , requestBody
-        , jsonVariableValues
-        , responseDataDecoder
-        , queryDocument
-        , namedQueryDocument
-        , mutationDocument
-        , namedMutationDocument
-        , fragment
-        , onType
-        , int
-        , float
-        , string
-        , bool
-        , id
-        , enum
-        , enumWithDefault
-        , customScalar
-        , list
-        , nullable
-        , object
-        , extract
-        , with
-        , withLocalConstant
-        , withDirectives
-        , keyValuePairs
-        , dict
-        , assume
-        , field
-        , aliasAs
-        , fragmentSpread
-        , inlineFragment
-        , map
-        )
+module GraphQL.Request.Builder exposing
+    ( ValueSpec, NonNull, Nullable, IntType, FloatType, StringType, BooleanType, IdType, EnumType, ListType, ObjectType
+    , object, SelectionSpec, with, withLocalConstant, extract, assume, withDirectives, keyValuePairs, dict
+    , Field, field, aliasAs
+    , Fragment, FragmentSpread, InlineFragment, TypeCondition, fragment, onType, fragmentSpread, inlineFragment
+    , int, float, string, bool, id, enum, enumWithDefault, customScalar
+    , nullable
+    , list
+    , map
+    , Document, Query, queryDocument, namedQueryDocument, Mutation, mutationDocument, namedMutationDocument
+    , Request, request, requestBody, jsonVariableValues, responseDataDecoder
+    )
 
 {-| This module provides an interface for building up GraphQL requests in a way that gives you everything you need to safely and conveniently integrate them with your Elm program:
 
@@ -349,9 +304,8 @@ request vars ((Document { operation, ast, serialized }) as doc) =
         { documentAST = ast
         , documentString = serialized
         , variableValues =
-            (documentVariables doc
+            documentVariables doc
                 |> Variable.extractValuesFrom vars
-            )
         , responseDataDecoder = documentResponseDecoder doc
         }
 
@@ -367,6 +321,7 @@ variableValuesToJson : List ( String, AST.ConstantValue ) -> Maybe Encode.Value
 variableValuesToJson kvPairs =
     if List.isEmpty kvPairs then
         Nothing
+
     else
         kvPairs
             |> List.map (Tuple.mapSecond ValueEncode.encode)
@@ -394,7 +349,7 @@ fragmentDefinitionsFromOperation (Operation { spec }) =
         (ValueSpec _ _ _ fragments) =
             spec
     in
-        fragments
+    fragments
 
 
 document : Operation operationType result vars -> Document operationType result vars
@@ -409,11 +364,11 @@ document operation =
                     ++ [ AST.OperationDefinition (operationAST operation) ]
                 )
     in
-        Document
-            { operation = operation
-            , ast = ast
-            , serialized = Serialize.serializeDocument ast
-            }
+    Document
+        { operation = operation
+        , ast = ast
+        , serialized = Serialize.serializeDocument ast
+        }
 
 
 {-| Take a `ValueSpec` and return a `Document` for a single query operation. The argument must be a `NonNull Object` ValueSpec, because it represents the root-level selection set of the query operation.
@@ -470,14 +425,14 @@ queryOperationType =
             passwordVar =
                 Var.required "password" .password Var.string
         in
-            mutationDocument <|
-                extract
-                    (field "login"
-                        [ ( "username", Arg.variable usernameVar )
-                        , ( "password", Arg.variable passwordVar )
-                        ]
-                        (extract (field "token" [] string))
-                    )
+        mutationDocument <|
+            extract
+                (field "login"
+                    [ ( "username", Arg.variable usernameVar )
+                    , ( "password", Arg.variable passwordVar )
+                    ]
+                    (extract (field "token" [] string))
+                )
 
 -}
 mutationDocument :
@@ -564,8 +519,8 @@ If you used this code to construct a query document with `userAvatarUrls ["alice
 
 ...and a successful decoded result would look something like this:
 
-    [ ("alice", "https://cdn.example.com/alice.png")
-    , ("bob", "https://cdn.example.com/bob.png")
+    [ ( "alice", "https://cdn.example.com/alice.png" )
+    , ( "bob", "https://cdn.example.com/bob.png" )
     ]
 
 Note that field aliases must still conform to the GraphQL spec:
@@ -588,7 +543,7 @@ keyValuePairs selections =
                             extract selection
                                 |> map (\value -> ( Util.responseKey fieldInfo, value ))
                     in
-                        map2 (::) keyValueSpec accSpec
+                    map2 (::) keyValueSpec accSpec
 
                 _ ->
                     accSpec
@@ -702,11 +657,11 @@ field name arguments (ValueSpec sourceType decoder fieldVars fragments) =
         vars =
             VarUtil.mergeVariables (varsFromArguments arguments) fieldVars
     in
-        SelectionSpec
-            (AST.Field astFieldInfo)
-            decoder
-            vars
-            fragments
+    SelectionSpec
+        (AST.Field astFieldInfo)
+        decoder
+        vars
+        fragments
 
 
 updateInfoWithDirectives : List ( String, List ( String, Arg.Value vars ) ) -> { info | directives : List AST.Directive } -> { info | directives : List AST.Directive }
@@ -888,11 +843,11 @@ fragmentSpread ((Fragment { name, spec }) as fragmentRecord) =
         (ValueSpec _ decoder _ nestedFragments) =
             spec
     in
-        SelectionSpec
-            (AST.FragmentSpread astFragmentSpreadInfo)
-            (Decode.maybe << decoder)
-            (fragmentVariables fragmentRecord)
-            (mergeFragments [ fragmentAST fragmentRecord ] nestedFragments)
+    SelectionSpec
+        (AST.FragmentSpread astFragmentSpreadInfo)
+        (Decode.maybe << decoder)
+        (fragmentVariables fragmentRecord)
+        (mergeFragments [ fragmentAST fragmentRecord ] nestedFragments)
 
 
 {-| Constructs a `SelectionSpec` for an object with a single inline fragment. Takes an optional `TypeCondition`, a list of optional directives, and a `ValueSpec` representing the selection set of the inline fragment. The directives are tuples whose first element is the name of the directive, and whose second element is a list of key-value tuples representing the directive arguments. Argument values are constructed using functions from [`GraphQL.Request.Builder.Value`](GraphQL-Request-Builder-Value).
@@ -948,11 +903,11 @@ inlineFragment maybeTypeCondition spec =
             , selectionSet = selectionSetFromSourceType sourceType
             }
     in
-        SelectionSpec
-            (AST.InlineFragment astInlineFragmentInfo)
-            (Decode.maybe << decoder)
-            vars
-            fragments
+    SelectionSpec
+        (AST.InlineFragment astInlineFragmentInfo)
+        (Decode.maybe << decoder)
+        vars
+        fragments
 
 
 varsFromArguments : List ( String, Arg.Value vars ) -> List (Variable vars)
@@ -1103,17 +1058,17 @@ enumWithFallback fallbackDecoder labelledValues =
         labels =
             List.map Tuple.first labelledValues
     in
-        ValueSpec
-            (SpecifiedType
-                { nullability = nonNullFlag
-                , coreType = EnumType labels
-                , join = enumJoin
-                , selectionSet = emptySelectionSet
-                }
-            )
-            (always decoder)
-            []
-            []
+    ValueSpec
+        (SpecifiedType
+            { nullability = nonNullFlag
+            , coreType = EnumType labels
+            , join = enumJoin
+            , selectionSet = emptySelectionSet
+            }
+        )
+        (always decoder)
+        []
+        []
 
 
 decoderFromEnumLabel :
@@ -1124,7 +1079,7 @@ decoderFromEnumLabel :
 decoderFromEnumLabel fallbackDecoder labelledValues =
     let
         valueFromLabel =
-            (\key -> Dict.get key (Dict.fromList labelledValues))
+            \key -> Dict.get key (Dict.fromList labelledValues)
 
         decoder enumString =
             case valueFromLabel enumString of
@@ -1134,7 +1089,7 @@ decoderFromEnumLabel fallbackDecoder labelledValues =
                 Nothing ->
                     fallbackDecoder enumString
     in
-        decoder
+    decoder
 
 
 {-| Constructs a `ValueSpec` for a GraphQL List type. Takes any kind of `ValueSpec` to use for the items of the list, and returns a `ValueSpec` that decodes into an Elm `List`.
@@ -1146,7 +1101,7 @@ list (ValueSpec itemType decoder vars fragments) =
     ValueSpec
         (SpecifiedType
             { nullability = nonNullFlag
-            , coreType = (ListType itemType)
+            , coreType = ListType itemType
             , join = listJoin
             , selectionSet = selectionSetFromSourceType itemType
             }
@@ -1244,7 +1199,7 @@ map2 f (ValueSpec sourceTypeA decoderA varsA fragmentsA) (ValueSpec sourceTypeB 
         mergedFragments =
             mergeFragments fragmentsA fragmentsB
     in
-        ValueSpec joinedSourceType joinedDecoder mergedVariables mergedFragments
+    ValueSpec joinedSourceType joinedDecoder mergedVariables mergedFragments
 
 
 {-| Use this function to add `SelectionSpec`s to an object `ValueSpec` pipeline:
@@ -1320,7 +1275,7 @@ join a b =
         ( SpecifiedType typeInfoA, SpecifiedType typeInfoB ) ->
             SpecifiedType
                 { typeInfoA
-                    | coreType = (typeInfoA.join typeInfoA.coreType typeInfoB.coreType)
+                    | coreType = typeInfoA.join typeInfoA.coreType typeInfoB.coreType
                     , selectionSet = mergeSelectionSets typeInfoA.selectionSet typeInfoB.selectionSet
                 }
 
@@ -1426,7 +1381,7 @@ fragmentVariables (Fragment { directives, spec }) =
         (ValueSpec _ _ specVariables _) =
             spec
     in
-        VarUtil.mergeVariables directiveVariables specVariables
+    VarUtil.mergeVariables directiveVariables specVariables
 
 
 documentAST : Document operationType result vars -> AST.Document
@@ -1447,7 +1402,7 @@ documentResponseDecoder (Document { operation }) =
         (Operation { spec }) =
             operation
     in
-        specDecoder spec
+    specDecoder spec
 
 
 documentVariables : Document operationType result vars -> List (Variable vars)
@@ -1459,7 +1414,7 @@ documentVariables (Document { operation }) =
         (ValueSpec _ _ vars _) =
             spec
     in
-        vars
+    vars
 
 
 specDecoder : ValueSpec nullability coreType result vars -> Decoder result

@@ -1,20 +1,19 @@
-module GraphQL.Schema.Decode
-    exposing
-        ( scalarTypeDecoder
-        , objectTypeDecoder
-        , unionTypeDecoder
-        , interfaceTypeDecoder
-        , enumTypeDecoder
-        , inputObjectTypeDecoder
-        , directiveDecoder
-        , schemaDecoder
-        , introspectionResponseDecoder
-        )
+module GraphQL.Schema.Decode exposing
+    ( directiveDecoder
+    , enumTypeDecoder
+    , inputObjectTypeDecoder
+    , interfaceTypeDecoder
+    , introspectionResponseDecoder
+    , objectTypeDecoder
+    , scalarTypeDecoder
+    , schemaDecoder
+    , unionTypeDecoder
+    )
 
-import Json.Decode as Decode exposing (Decoder, field, string, bool, null, list)
-import Json.Encode as Encode
-import GraphQL.Schema as Schema exposing (Schema)
 import Dict exposing (Dict)
+import GraphQL.Schema as Schema exposing (Schema)
+import Json.Decode as Decode exposing (Decoder, bool, field, list, null, string)
+import Json.Encode as Encode
 
 
 nullable : Decoder a -> Decoder (Maybe a)
@@ -121,22 +120,22 @@ typeRefDecoder =
             (\kind ->
                 case kind of
                     "LIST" ->
-                        (field "ofType" typeRefDecoder)
+                        field "ofType" typeRefDecoder
                             |> Decode.map Schema.List
 
                     "NON_NULL" ->
-                        (field "ofType" typeRefDecoder)
+                        field "ofType" typeRefDecoder
                             |> Decode.map Schema.NonNull
 
                     _ ->
-                        (field "name" string)
+                        field "name" string
                             |> Decode.map Schema.Ref
             )
 
 
 namedTypeDecoder : Decoder Schema.NamedType
 namedTypeDecoder =
-    (field "kind" string)
+    field "kind" string
         |> Decode.andThen
             (\kind ->
                 case kind of

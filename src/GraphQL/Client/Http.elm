@@ -1,20 +1,9 @@
-module GraphQL.Client.Http
-    exposing
-        ( RequestError
-        , DocumentLocation
-        , Error(..)
-        , RequestOptions
-        , sendQuery
-        , sendMutation
-        , customSendQuery
-        , customSendQueryRaw
-        , customSendMutation
-        , customSendMutationRaw
-        )
+module GraphQL.Client.Http exposing (Error(..), RequestError, DocumentLocation, sendQuery, sendMutation, RequestOptions, customSendQuery, customSendMutation, customSendQueryRaw, customSendMutationRaw)
 
 {-| The functions in this module let you perform HTTP requests to conventional GraphQL server endpoints.
 
-@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation, RequestOptions,  customSendQuery, customSendMutation, customSendQueryRaw, customSendMutationRaw
+@docs Error, RequestError, DocumentLocation, sendQuery, sendMutation, RequestOptions, customSendQuery, customSendMutation, customSendQueryRaw, customSendMutationRaw
+
 -}
 
 import GraphQL.Client.Http.Util as Util
@@ -126,17 +115,18 @@ Example of response decoding:
             , withCredentials = False
             }
     in
-        request
-            |> GraphQL.Client.Http.customSendQueryRaw options
-            |> Task.andThen
-                (\response ->
-                    case Json.Decode.decodeString decoder response.body of
-                        Err err ->
-                            Task.fail <| GraphQL.Client.Http.HttpError <| Http.BadPayload err response
+    request
+        |> GraphQL.Client.Http.customSendQueryRaw options
+        |> Task.andThen
+            (\response ->
+                case Json.Decode.decodeString decoder response.body of
+                    Err err ->
+                        Task.fail <| GraphQL.Client.Http.HttpError <| Http.BadPayload err response
 
-                        Ok decodedValue ->
-                            Task.succeed decodedValue
-                )
+                    Ok decodedValue ->
+                        Task.succeed decodedValue
+            )
+
 -}
 customSendQueryRaw :
     RequestOptions
@@ -175,17 +165,17 @@ Example of response decoding:
             , withCredentials = False
             }
     in
-        mutationRequest
-            |> GraphQL.Client.Http.customSendMutationRaw options
-            |> Task.andThen
-                (\response ->
-                    case Json.Decode.decodeString decoder response.body of
-                        Err err ->
-                            Task.fail <| GraphQL.Client.Http.HttpError <| Http.BadPayload err response
+    mutationRequest
+        |> GraphQL.Client.Http.customSendMutationRaw options
+        |> Task.andThen
+            (\response ->
+                case Json.Decode.decodeString decoder response.body of
+                    Err err ->
+                        Task.fail <| GraphQL.Client.Http.HttpError <| Http.BadPayload err response
 
-                        Ok decodedValue ->
-                            Task.succeed decodedValue
-                )
+                    Ok decodedValue ->
+                        Task.succeed decodedValue
+            )
 
 -}
 customSendMutationRaw :
@@ -210,7 +200,7 @@ send options request =
         expect =
             Util.defaultExpect (Builder.responseDataDecoder request)
     in
-        sendExpecting expect options request
+    sendExpecting expect options request
 
 
 sendExpecting :
@@ -226,7 +216,7 @@ sendExpecting expect requestOptions request =
         variableValues =
             Builder.jsonVariableValues request
     in
-        Util.requestConfig requestOptions documentString expect variableValues
-            |> Http.request
-            |> Http.toTask
-            |> Task.mapError (Util.convertHttpError HttpError GraphQLError)
+    Util.requestConfig requestOptions documentString expect variableValues
+        |> Http.request
+        |> Http.toTask
+        |> Task.mapError (Util.convertHttpError HttpError GraphQLError)

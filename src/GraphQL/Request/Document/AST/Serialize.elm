@@ -1,11 +1,8 @@
-module GraphQL.Request.Document.AST.Serialize
-    exposing
-        ( serializeDocument
-        )
+module GraphQL.Request.Document.AST.Serialize exposing (serializeDocument)
 
 import GraphQL.Request.Document.AST as AST
-import String
 import Json.Encode as Encode
+import String
 
 
 serializeDocument : AST.Document -> String
@@ -64,6 +61,7 @@ serializeVariableDefinitions : List AST.VariableDefinition -> List String
 serializeVariableDefinitions defs =
     if List.isEmpty defs then
         []
+
     else
         [ "(" ++ String.join ", " (List.map serializeVariableDefinition defs) ++ ")" ]
 
@@ -109,7 +107,7 @@ serializeCoreTypeRef coreTypeRef =
             name
 
         AST.ListTypeRef typeRef ->
-            "[" ++ (serializeTypeRef typeRef) ++ "]"
+            "[" ++ serializeTypeRef typeRef ++ "]"
 
 
 serializeValue : AST.Value variableConstraint -> String
@@ -165,6 +163,7 @@ serializeArgList : List ( String, AST.ArgumentValue ) -> List String
 serializeArgList args =
     if List.isEmpty args then
         []
+
     else
         [ "(" ++ String.join ", " (List.map serializeKeyValuePair args) ++ ")" ]
 
@@ -173,6 +172,7 @@ serializeSelectionSet : Int -> AST.SelectionSet -> List String
 serializeSelectionSet indentLevel (AST.SelectionSet selections) =
     if List.isEmpty selections then
         []
+
     else
         [ "{\n"
             ++ String.join "\n" (List.map (serializeSelection (indentLevel + 1)) selections)
@@ -185,6 +185,7 @@ indent : Int -> String -> String
 indent level string =
     if level <= 0 then
         string
+
     else
         "  " ++ indent (level - 1) string
 

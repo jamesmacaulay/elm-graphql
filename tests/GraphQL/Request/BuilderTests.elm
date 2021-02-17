@@ -1,6 +1,6 @@
 module GraphQL.Request.BuilderTests exposing (..)
 
-import Test exposing (..)
+import Dict exposing (Dict)
 import Expect
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
@@ -8,7 +8,7 @@ import GraphQL.Request.Builder.Variable as Var
 import GraphQL.Response as Response
 import Json.Decode as Decode
 import Json.Encode as Encode
-import Dict exposing (Dict)
+import Test exposing (..)
 
 
 testDecoder :
@@ -309,14 +309,14 @@ exampleMutationDocument =
         passwordVar =
             Var.required "password" .password Var.string
     in
-        mutationDocument <|
-            extract
-                (field "login"
-                    [ ( "username", Arg.variable usernameVar )
-                    , ( "password", Arg.variable passwordVar )
-                    ]
-                    (extract (field "token" [] string))
-                )
+    mutationDocument <|
+        extract
+            (field "login"
+                [ ( "username", Arg.variable usernameVar )
+                , ( "password", Arg.variable passwordVar )
+                ]
+                (extract (field "token" [] string))
+            )
 
 
 exampleMutationRequest : Request Mutation String
@@ -588,7 +588,7 @@ tests =
                 |> Expect.equal (Ok (Dict.fromList exampleKeyValuePairsDecoded))
     , test "named query with arguments" <|
         \() ->
-            (namedQueryDocument "MyQuery" (extract (field "foo" [ ( "bar", Var.required "bar" identity Var.bool |> Arg.variable ) ] string)))
+            namedQueryDocument "MyQuery" (extract (field "foo" [ ( "bar", Var.required "bar" identity Var.bool |> Arg.variable ) ] string))
                 |> request True
                 |> requestBody
                 |> Expect.equal """query MyQuery ($bar: Boolean!) {
@@ -596,7 +596,7 @@ tests =
 }"""
     , test "named mutation with no arguments" <|
         \() ->
-            (namedMutationDocument "MyMutation" (extract (field "foo" [] string)))
+            namedMutationDocument "MyMutation" (extract (field "foo" [] string))
                 |> request True
                 |> requestBody
                 |> Expect.equal """mutation MyMutation {

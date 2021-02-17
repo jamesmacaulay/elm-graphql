@@ -1,12 +1,12 @@
 module GraphQL.Schema.DecodeTests exposing (..)
 
-import Test exposing (..)
+import Dict exposing (Dict)
 import Expect
-import Json.Decode as Decode
 import GraphQL.Schema as Schema exposing (Schema)
 import GraphQL.Schema.Decode
+import Json.Decode as Decode
 import String
-import Dict exposing (Dict)
+import Test exposing (..)
 
 
 scalarTypeJSON =
@@ -393,29 +393,29 @@ tests =
                     almostValidSchemaJSON
                         |> Decode.decodeString GraphQL.Schema.Decode.schemaDecoder
             in
-                case decodeResult of
-                    Ok schema ->
-                        let
-                            summary =
-                                { queryType = schema.queryType
-                                , mutationType = schema.mutationType
-                                , subscriptionType = schema.subscriptionType
-                                , typeNames = Dict.keys schema.types
-                                , directiveNames = List.map .name schema.directives
-                                }
+            case decodeResult of
+                Ok schema ->
+                    let
+                        summary =
+                            { queryType = schema.queryType
+                            , mutationType = schema.mutationType
+                            , subscriptionType = schema.subscriptionType
+                            , typeNames = Dict.keys schema.types
+                            , directiveNames = List.map .name schema.directives
+                            }
 
-                            expected =
-                                { queryType = "Thing"
-                                , mutationType = Nothing
-                                , subscriptionType = Nothing
-                                , typeNames = [ "Boolean", "HasMass", "OnlyThing", "Thing", "ThingInput", "UnitSystem" ]
-                                , directiveNames = [ "include" ]
-                                }
-                        in
-                            Expect.equal expected summary
+                        expected =
+                            { queryType = "Thing"
+                            , mutationType = Nothing
+                            , subscriptionType = Nothing
+                            , typeNames = [ "Boolean", "HasMass", "OnlyThing", "Thing", "ThingInput", "UnitSystem" ]
+                            , directiveNames = [ "include" ]
+                            }
+                    in
+                    Expect.equal expected summary
 
-                    Err err ->
-                        Expect.fail (Decode.errorToString err)
+                Err err ->
+                    Expect.fail (Decode.errorToString err)
     ]
 
 

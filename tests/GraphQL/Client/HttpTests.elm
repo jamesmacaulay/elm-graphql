@@ -1,10 +1,10 @@
 module GraphQL.Client.HttpTests exposing (..)
 
-import Test exposing (..)
 import Expect
 import GraphQL.Client.Http
 import GraphQL.Client.Http.Util as Util
 import Json.Encode
+import Test exposing (..)
 
 
 minimalVars : Json.Encode.Value
