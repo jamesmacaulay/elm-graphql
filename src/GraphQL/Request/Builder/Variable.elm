@@ -1,35 +1,13 @@
-module GraphQL.Request.Builder.Variable
-    exposing
-        ( VariableSpec
-        , Nullable
-        , NonNull
-        , Variable
-        , Field
-        , required
-        , optional
-        , int
-        , float
-        , string
-        , bool
-        , id
-        , enum
-        , nullable
-        , list
-        , object
-        , field
-        , optionalField
-        , name
-        , toDefinitionAST
-        , extractValuesFrom
-        )
+module GraphQL.Request.Builder.Variable exposing (VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, enum, nullable, list, object, field, optionalField, name, toDefinitionAST, extractValuesFrom)
 
 {-| The functions in this module let you define GraphQL variables that you can pass as arguments in your request documents built with the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
 @docs VariableSpec, Nullable, NonNull, Variable, Field, required, optional, int, float, string, bool, id, enum, nullable, list, object, field, optionalField, name, toDefinitionAST, extractValuesFrom
+
 -}
 
-import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Builder.TypeRef as TypeRef exposing (TypeRef)
+import GraphQL.Request.Document.AST as AST
 
 
 {-| A specification for the type of a `Variable` which includes enough information to extract a conforming value from an Elm value.
@@ -73,6 +51,7 @@ required variableName extract (VariableSpec _ typeRef convert) =
 {-| Construct a `Variable` that has a default value, and therefore its `source` may or may not provide a value for it. The first three arguments are the same as for the `required` function, except that the function to extract a value from `source` must return a `Maybe` of the type expected by the `VariableSpec`. The last argument is a default value for the variable.
 
 Note that the `VariableSpec` may be either `Nullable` or `NonNull`, but in both cases the variable definition is serialized _without_ a Non-Null modifier in the GraphQL request document, because optional variables may not be Non-Null in GraphQL. If you pass a `NonNull` `VariableSpec` into this function, it just means that you won't be able to represent an explicit `null` for the variable's value. If instead you pass a `Nullable` `VariableSpec` into this function, you will be able to represent an explicit `null` value for the variable, but you'll also have to deal with double-wrapped `Maybe` values – a missing value is then represented as a `Nothing` returned from your extraction function, and a `null` value is represented as `Just Nothing`. For this reason, it is recommended that you stick to `NonNull` `VariableSpec` values here unless you really need to be able to pass `null` explictly to the GraphQL server.
+
 -}
 optional : String -> (source -> Maybe a) -> VariableSpec nullability a -> a -> Variable source
 optional variableName extractMaybe (VariableSpec nullability typeRef convert) defaultValue =
@@ -132,6 +111,7 @@ id =
     accessLevel : VariableSpec NonNull AccessLevel
     accessLevel =
         enum "AccessLevel" accessLevelToEnumSymbol
+
 -}
 enum : String -> (source -> String) -> VariableSpec NonNull source
 enum typeName convert =
@@ -174,6 +154,7 @@ list (VariableSpec _ typeRef convert) =
                 , field "email" .email string
                 ]
             )
+
 -}
 object : String -> List (Field source) -> VariableSpec NonNull source
 object typeName fields =
@@ -216,6 +197,7 @@ In the following example, both the `phoneNumber` and `email` fields are optional
                 , optionalField "phoneNumber" .phoneNumber (nullable string)
                 ]
             )
+
 -}
 optionalField :
     String
@@ -236,7 +218,7 @@ valueFromSource : source -> Variable source -> Maybe ( String, AST.ConstantValue
 valueFromSource source var =
     case var of
         RequiredVariable _ _ f ->
-            Just ( name var, (f source) )
+            Just ( name var, f source )
 
         OptionalVariable _ _ f _ ->
             case f source of

@@ -1,7 +1,4 @@
-module GraphQL.Request.Builder.Variable.Util
-    exposing
-        ( mergeVariables
-        )
+module GraphQL.Request.Builder.Variable.Util exposing (mergeVariables)
 
 import GraphQL.Request.Builder.Variable as Variable exposing (Variable)
 
@@ -20,4 +17,4 @@ variableIsNotInList existingVars thisVar =
         sameASTAsThisVar var =
             Variable.toDefinitionAST var == thisVarAST
     in
-        not (List.any sameASTAsThisVar existingVars)
+    not (List.any sameASTAsThisVar existingVars)

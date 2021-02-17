@@ -1,29 +1,14 @@
-module GraphQL.Request.Builder.Arg
-    exposing
-        ( Value
-        , variable
-        , int
-        , float
-        , string
-        , bool
-        , true
-        , false
-        , null
-        , enum
-        , object
-        , list
-        , getAST
-        , getVariables
-        )
+module GraphQL.Request.Builder.Arg exposing (Value, variable, int, float, string, bool, true, false, null, enum, object, list, getAST, getVariables)
 
 {-| The functions in this module let you construct argument values that you can pass to fields and directives using the functions in [`GraphQL.Request.Builder`](GraphQL-Request-Builder).
 
 @docs Value, variable, int, float, string, bool, true, false, null, enum, object, list, getAST, getVariables
+
 -}
 
-import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Builder.Variable as Variable
 import GraphQL.Request.Builder.Variable.Util as VarUtil
+import GraphQL.Request.Document.AST as AST
 
 
 {-| An argument value, which might be either a constant or a variable. The `vars` parameter is the type of Elm value that variables will extract their values from.

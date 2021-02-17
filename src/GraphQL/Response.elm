@@ -1,9 +1,8 @@
-module GraphQL.Response
-    exposing
-        ( RequestError
-        , DocumentLocation
-        , errorsDecoder
-        )
+module GraphQL.Response exposing
+    ( DocumentLocation
+    , RequestError
+    , errorsDecoder
+    )
 
 import Json.Decode as Decode exposing (Decoder)
 

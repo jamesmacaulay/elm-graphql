@@ -1,15 +1,14 @@
-module GraphQL.Request.Builder.TypeRef
-    exposing
-        ( TypeRef
-        , namedType
-        , list
-        , nullable
-        , int
-        , float
-        , string
-        , boolean
-        , id
-        )
+module GraphQL.Request.Builder.TypeRef exposing
+    ( TypeRef
+    , boolean
+    , float
+    , id
+    , int
+    , list
+    , namedType
+    , nullable
+    , string
+    )
 
 import GraphQL.Request.Document.AST as AST
 

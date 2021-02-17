@@ -1,10 +1,10 @@
 module Main exposing (..)
 
-import Html exposing (Html, div, text)
+import GraphQL.Client.Http as GraphQLClient
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
-import GraphQL.Client.Http as GraphQLClient
+import Html exposing (Html, div, text)
 import Task exposing (Task)
 
 
@@ -20,6 +20,7 @@ type alias FilmSummary =
 {-| The definition of `starWarsRequest` builds up a query request value that
 will later be encoded into the following GraphQL query document:
 
+```graphql
 fragment filmPlanetsFragment on Film {
   planetConnection(first: $pageSize) {
     edges {
@@ -43,9 +44,11 @@ query ($filmID: ID!, $pageSize: Int = 3) {
     ...filmPlanetsFragment
   }
 }
+```
 
 This query is sent along with variable values extracted from the record passed
 to `request`, and the response is decoded into a `FilmSummary`.
+
 -}
 starWarsRequest : Request Query FilmSummary
 starWarsRequest =
@@ -66,24 +69,24 @@ starWarsRequest =
                     )
                 )
     in
-        extract
-            (field "film"
-                [ ( "filmID", Arg.variable filmID ) ]
-                (object FilmSummary
-                    |> with (field "title" [] (nullable string))
-                    |> with
-                        (field "characterConnection"
-                            [ ( "first", Arg.variable pageSize ) ]
-                            (connectionNodes (extract (field "name" [] (nullable string))))
-                        )
-                    |> with (fragmentSpread planetsFragment)
-                )
+    extract
+        (field "film"
+            [ ( "filmID", Arg.variable filmID ) ]
+            (object FilmSummary
+                |> with (field "title" [] (nullable string))
+                |> with
+                    (field "characterConnection"
+                        [ ( "first", Arg.variable pageSize ) ]
+                        (connectionNodes (extract (field "name" [] (nullable string))))
+                    )
+                |> with (fragmentSpread planetsFragment)
             )
-            |> queryDocument
-            |> request
-                { filmID = "1"
-                , pageSize = Nothing
-                }
+        )
+        |> queryDocument
+        |> request
+            { filmID = "1"
+            , pageSize = Nothing
+            }
 
 
 {-| A function that helps you extract node objects from paginated Relay connections.

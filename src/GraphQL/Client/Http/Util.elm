@@ -18,7 +18,7 @@ postBodyJson documentString variableValues =
                 |> Maybe.map (\obj -> [ ( "variables", obj ) ])
                 |> Maybe.withDefault []
     in
-        Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
+    Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
 
 
 postBody : String -> Maybe Json.Encode.Value -> Http.Body
@@ -32,6 +32,7 @@ parameterizedUrl url documentString variableValues =
         firstParamPrefix =
             if String.contains "?" url then
                 "&"
+
             else
                 "?"
 
@@ -46,7 +47,7 @@ parameterizedUrl url documentString variableValues =
                     )
                 |> Maybe.withDefault ""
     in
-        url ++ queryParam ++ variablesParam
+    url ++ queryParam ++ variablesParam
 
 
 type alias RequestOptions =
@@ -107,17 +108,18 @@ requestConfig requestOptions documentString expect variableValues =
         ( url, body ) =
             if requestOptions.method == "GET" then
                 ( parameterizedUrl requestOptions.url documentString variableValues, Http.emptyBody )
+
             else
                 ( requestOptions.url, postBody documentString variableValues )
     in
-        { method = requestOptions.method
-        , headers = requestOptions.headers
-        , url = url
-        , body = body
-        , expect = expect
-        , timeout = requestOptions.timeout
-        , withCredentials = requestOptions.withCredentials
-        }
+    { method = requestOptions.method
+    , headers = requestOptions.headers
+    , url = url
+    , body = body
+    , expect = expect
+    , timeout = requestOptions.timeout
+    , withCredentials = requestOptions.withCredentials
+    }
 
 
 defaultExpect : Json.Decode.Decoder result -> Http.Expect result
@@ -139,12 +141,12 @@ convertHttpError wrapHttpError wrapGraphQLError httpError =
                 |> Result.map wrapGraphQLError
                 |> Result.withDefault (wrapHttpError httpError)
     in
-        case httpError of
-            Http.BadStatus { body } ->
-                handleErrorWithResponseBody body
+    case httpError of
+        Http.BadStatus { body } ->
+            handleErrorWithResponseBody body
 
-            Http.BadPayload _ { body } ->
-                handleErrorWithResponseBody body
+        Http.BadPayload _ { body } ->
+            handleErrorWithResponseBody body
 
-            _ ->
-                wrapHttpError httpError
+        _ ->
+            wrapHttpError httpError

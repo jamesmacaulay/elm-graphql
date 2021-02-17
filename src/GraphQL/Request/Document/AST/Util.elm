@@ -1,7 +1,4 @@
-module GraphQL.Request.Document.AST.Util
-    exposing
-        ( responseKey
-        )
+module GraphQL.Request.Document.AST.Util exposing (responseKey)
 
 import GraphQL.Request.Document.AST as AST
 

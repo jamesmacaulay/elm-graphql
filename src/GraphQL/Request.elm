@@ -1,8 +1,7 @@
-module GraphQL.Request
-    exposing
-        ( Document
-        , Request
-        )
+module GraphQL.Request exposing
+    ( Document
+    , Request
+    )
 
 import GraphQL.Request.Document.AST as AST
 import GraphQL.Request.Document.AST.Serialize exposing (serializeDocument)
