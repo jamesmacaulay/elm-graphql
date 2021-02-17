@@ -3,30 +3,38 @@ module GraphQL.Client.Http.Util exposing (..)
 import GraphQL.Response as Response
 import Http
 import Json.Decode
-import Json.Encode
+import Json.Encode as Encode
 import Url
 
 
-postBodyJson : String -> Maybe Json.Encode.Value -> Json.Encode.Value
-postBodyJson documentString variableValues =
+postBodyJsonWith : List ( String, Encode.Value ) -> String -> Maybe Encode.Value -> Encode.Value
+postBodyJsonWith extraFields documentString variableValues =
     let
         documentValue =
-            Json.Encode.string documentString
+            Encode.string documentString
 
         extraParams =
-            variableValues
-                |> Maybe.map (\obj -> [ ( "variables", obj ) ])
-                |> Maybe.withDefault []
+            case variableValues of
+                Just obj ->
+                    ( "variables", obj ) :: extraFields
+
+                Nothing ->
+                    extraFields
     in
-    Json.Encode.object ([ ( "query", documentValue ) ] ++ extraParams)
+    Encode.object <| ( "query", documentValue ) :: extraParams
 
 
-postBody : String -> Maybe Json.Encode.Value -> Http.Body
+postBodyJson : String -> Maybe Encode.Value -> Encode.Value
+postBodyJson =
+    postBodyJsonWith []
+
+
+postBody : String -> Maybe Encode.Value -> Http.Body
 postBody documentString variableValues =
     Http.jsonBody (postBodyJson documentString variableValues)
 
 
-parameterizedUrl : String -> String -> Maybe Json.Encode.Value -> String
+parameterizedUrl : String -> String -> Maybe Encode.Value -> String
 parameterizedUrl url documentString variableValues =
     let
         firstParamPrefix =
@@ -43,7 +51,7 @@ parameterizedUrl url documentString variableValues =
             variableValues
                 |> Maybe.map
                     (\obj ->
-                        "&variables=" ++ Url.percentEncode (Json.Encode.encode 0 obj)
+                        "&variables=" ++ Url.percentEncode (Encode.encode 0 obj)
                     )
                 |> Maybe.withDefault ""
     in
@@ -55,6 +63,7 @@ type alias RequestOptions =
     , headers : List Http.Header
     , url : String
     , timeout : Maybe Float
+    , tracker : Maybe String
     , withCredentials : Bool
     }
 
@@ -71,11 +80,6 @@ type alias DocumentLocation =
     }
 
 
-type Error
-    = HttpError Http.Error
-    | GraphQLError (List RequestError)
-
-
 type alias RequestConfig a =
     { method : String
     , headers : List Http.Header
@@ -83,6 +87,7 @@ type alias RequestConfig a =
     , body : Http.Body
     , expect : Http.Expect a
     , timeout : Maybe Float
+    , tracker : Maybe String
     , withCredentials : Bool
     }
 
@@ -93,6 +98,7 @@ defaultRequestOptions url =
     , headers = []
     , url = url
     , timeout = Nothing
+    , tracker = Nothing
     , withCredentials = False
     }
 
@@ -101,7 +107,7 @@ requestConfig :
     RequestOptions
     -> String
     -> Http.Expect a
-    -> Maybe Json.Encode.Value
+    -> Maybe Encode.Value
     -> RequestConfig a
 requestConfig requestOptions documentString expect variableValues =
     let
@@ -118,35 +124,6 @@ requestConfig requestOptions documentString expect variableValues =
     , body = body
     , expect = expect
     , timeout = requestOptions.timeout
+    , tracker = requestOptions.tracker
     , withCredentials = requestOptions.withCredentials
     }
-
-
-defaultExpect : Json.Decode.Decoder result -> Http.Expect result
-defaultExpect =
-    Http.expectJson << Json.Decode.field "data"
-
-
-errorsResponseDecoder : Json.Decode.Decoder (List RequestError)
-errorsResponseDecoder =
-    Json.Decode.field "errors" Response.errorsDecoder
-
-
-convertHttpError : (Http.Error -> err) -> (List RequestError -> err) -> Http.Error -> err
-convertHttpError wrapHttpError wrapGraphQLError httpError =
-    let
-        handleErrorWithResponseBody responseBody =
-            responseBody
-                |> Json.Decode.decodeString errorsResponseDecoder
-                |> Result.map wrapGraphQLError
-                |> Result.withDefault (wrapHttpError httpError)
-    in
-    case httpError of
-        Http.BadStatus { body } ->
-            handleErrorWithResponseBody body
-
-        Http.BadPayload _ { body } ->
-            handleErrorWithResponseBody body
-
-        _ ->
-            wrapHttpError httpError
